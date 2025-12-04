@@ -41,6 +41,13 @@ class InstagramProfile(Base):
     analyzed_at = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Дополнительные поля для статистики
+    views = Column(Integer, default=0)
+    interactions = Column(Integer, default=0)
+    new_followers = Column(Integer, default=0)
+    messages = Column(Integer, default=0)
+    shares = Column(Integer, default=0)
 
 
 def init_db():

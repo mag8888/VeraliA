@@ -449,10 +449,21 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if response.status == 200:
                         result = await response.json()
                         screenshot_type_name = "главной страницы" if screenshot_type == 'main_page' else "статистики"
+                        
+                        # Отправляем уведомление с кнопками
+                        keyboard = [
+                            [
+                                InlineKeyboardButton("📱 Посмотреть в приложении", web_app=WebAppInfo(url=MINIAPP_URL)),
+                                InlineKeyboardButton("📊 Посмотреть в боте", callback_data=f"view_profile_{username}")
+                            ]
+                        ]
+                        reply_markup = InlineKeyboardMarkup(keyboard)
+                        
                         await update.message.reply_text(
-                            f"✅ Скриншот {screenshot_type_name} загружен!\n\n"
-                            f"📊 Данные сохранены для пользователя: {username}\n\n"
-                            "Откройте мини-приложение для просмотра статистики."
+                            f"✅ Анализ вашего профиля завершен!\n\n"
+                            f"📊 Данные сохранены для пользователя: @{username}\n\n"
+                            f"Скриншот {screenshot_type_name} успешно обработан.",
+                            reply_markup=reply_markup
                         )
                         # Сброс типа скриншота после успешной загрузки
                         context.user_data['screenshot_type'] = None
@@ -481,10 +492,66 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Регистрация обработчиков
 telegram_app.add_handler(CommandHandler("start", start_command))
+async def view_profile_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик кнопки просмотра профиля в боте"""
+    query = update.callback_query
+    await query.answer()
+    
+    # Извлекаем username из callback_data (формат: view_profile_{username})
+    callback_data = query.data
+    username = callback_data.replace("view_profile_", "")
+    
+    try:
+        # Получаем данные из Parsing Server
+        async with aiohttp.ClientSession() as session:
+            data_url = f"{PARSING_SERVER_URL}/api/data/{username}"
+            if not data_url.startswith(('http://', 'https://')):
+                data_url = f"https://{data_url}"
+            
+            async with session.get(data_url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    
+                    # Формируем сообщение с данными профиля
+                    profile_data = data.get('data', {})
+                    followers = profile_data.get('followers', 0)
+                    following = profile_data.get('following', 0)
+                    posts_count = profile_data.get('posts_count', 0)
+                    bio = profile_data.get('bio', 'Не указано')
+                    engagement_rate = profile_data.get('engagement_rate', 0)
+                    
+                    message = (
+                        f"📊 Профиль: @{username}\n\n"
+                        f"👥 Подписчики: {followers:,}\n"
+                        f"👤 Подписки: {following:,}\n"
+                        f"📸 Публикации: {posts_count:,}\n"
+                        f"📈 Engagement Rate: {engagement_rate * 100:.2f}%\n\n"
+                        f"📝 О себе:\n{bio}\n\n"
+                        f"📱 Для детального отчета откройте мини-приложение"
+                    )
+                    
+                    keyboard = [
+                        [InlineKeyboardButton("📱 Открыть мини-приложение", web_app=WebAppInfo(url=MINIAPP_URL))]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
+                    await query.edit_message_text(message, reply_markup=reply_markup)
+                else:
+                    await query.edit_message_text(
+                        f"❌ Не удалось загрузить данные для профиля @{username}"
+                    )
+    except Exception as e:
+        logger.error(f"Ошибка при получении данных профиля: {e}")
+        await query.edit_message_text(
+            f"❌ Произошла ошибка при загрузке данных профиля."
+        )
+
+
 telegram_app.add_handler(CallbackQueryHandler(analyze_instagram_callback, pattern="^analyze_instagram$"))
 telegram_app.add_handler(CallbackQueryHandler(upload_main_page_callback, pattern="^upload_main_page$"))
 telegram_app.add_handler(CallbackQueryHandler(upload_stats_callback, pattern="^upload_stats$"))
 telegram_app.add_handler(CallbackQueryHandler(cancel_upload_callback, pattern="^cancel_upload$"))
+telegram_app.add_handler(CallbackQueryHandler(view_profile_callback, pattern="^view_profile_"))
 telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 telegram_app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
@@ -527,12 +594,42 @@ async def miniapp(request: Request):
     })
 
 
+@app.post("/api/send-notification")
+async def send_notification(
+    user_id: int = Form(...),
+    username: str = Form(...)
+):
+    """Отправка уведомления пользователю после завершения парсинга"""
+    try:
+        keyboard = [
+            [
+                InlineKeyboardButton("📱 Посмотреть в приложении", web_app=WebAppInfo(url=MINIAPP_URL)),
+                InlineKeyboardButton("📊 Посмотреть в боте", callback_data=f"view_profile_{username}")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await telegram_app.bot.send_message(
+            chat_id=user_id,
+            text=f"✅ Анализ вашего профиля завершен!\n\n"
+                 f"📊 Данные сохранены для пользователя: @{username}\n\n"
+                 f"Откройте мини-приложение или бота для просмотра результатов.",
+            reply_markup=reply_markup
+        )
+        
+        return JSONResponse({"success": True, "message": "Уведомление отправлено"})
+    except Exception as e:
+        logger.error(f"Ошибка отправки уведомления: {e}")
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 @app.post("/api/upload-screenshot")
 async def upload_screenshot_from_miniapp(
     request: Request,
     username: str = Form(...),
     screenshot_type: str = Form(...),
-    screenshot: UploadFile = File(...)
+    screenshot: UploadFile = File(...),
+    user_id: int = Form(None)  # Опциональный user_id из Telegram WebApp
 ):
     """API endpoint для загрузки скриншотов из мини-приложения"""
     try:

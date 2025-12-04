@@ -121,6 +121,12 @@ async def analyze_instagram(
             profile.bio = parsed_data.get('bio')
             profile.engagement_rate = parsed_data.get('engagement_rate')
             profile.screenshot_path = file_path
+            # Сохраняем дополнительные данные из скриншота
+            profile.views = parsed_data.get('views', 0)
+            profile.interactions = parsed_data.get('interactions', 0)
+            profile.new_followers = parsed_data.get('new_followers', 0)
+            profile.messages = parsed_data.get('messages', 0)
+            profile.shares = parsed_data.get('shares', 0)
             profile.analyzed_at = datetime.utcnow()
             profile.updated_at = datetime.utcnow()
         else:
@@ -133,6 +139,12 @@ async def analyze_instagram(
                 bio=parsed_data.get('bio'),
                 engagement_rate=parsed_data.get('engagement_rate'),
                 screenshot_path=file_path,
+                # Сохраняем дополнительные данные из скриншота
+                views=parsed_data.get('views', 0),
+                interactions=parsed_data.get('interactions', 0),
+                new_followers=parsed_data.get('new_followers', 0),
+                messages=parsed_data.get('messages', 0),
+                shares=parsed_data.get('shares', 0),
                 analyzed_at=datetime.utcnow()
             )
             db.add(profile)

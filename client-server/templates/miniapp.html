@@ -514,6 +514,14 @@
                 formData.append('screenshot_type', 'stats');
                 formData.append('screenshot', file);
                 
+                // Добавляем user_id из Telegram WebApp для отправки уведомления
+                if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+                    const userId = window.Telegram.WebApp.initDataUnsafe.user?.id;
+                    if (userId) {
+                        formData.append('user_id', userId);
+                    }
+                }
+                
                 // Отправляем на сервер
                 const response = await fetch('/api/upload-screenshot', {
                     method: 'POST',
