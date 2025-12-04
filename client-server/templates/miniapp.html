@@ -443,7 +443,19 @@
                 
                 if (result.success) {
                     // Сохраняем данные профиля
-                    currentProfileData = result.data;
+                    if (result.data && result.data.data) {
+                        currentProfileData = {
+                            username: result.data.data.username || currentUsername,
+                            followers: result.data.data.followers || 0,
+                            following: result.data.data.following || 0,
+                            posts_count: result.data.data.posts_count || 0,
+                            engagement_rate: result.data.data.engagement_rate || 0,
+                            bio: result.data.data.bio || '',
+                            analyzed_at: result.data.data.analyzed_at || new Date().toISOString()
+                        };
+                    } else {
+                        currentProfileData = result.data || result;
+                    }
                     
                     // Показываем успешное сообщение
                     resultsDiv.innerHTML = `
