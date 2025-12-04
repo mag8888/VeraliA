@@ -512,27 +512,31 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
         logger.error(f"Ошибка при получении профиля {username}: {e}")
         raise HTTPException(status_code=500, detail=f"Ошибка при получении данных: {str(e)}")
     
-    profile_dict = {
-        "username": profile.username,
-        "followers": profile.followers,
-        "following": profile.following,
-        "posts_count": profile.posts_count,
-        "bio": profile.bio,
-        "engagement_rate": profile.engagement_rate,
-        "analyzed_at": profile.analyzed_at.isoformat() if profile.analyzed_at else None,
-        "created_at": profile.created_at.isoformat() if profile.created_at else None,
-        "updated_at": profile.updated_at.isoformat() if profile.updated_at else None
-    }
-    
-    # Добавляем дополнительные данные из базы
-    screenshot_data = {
-        "views": profile.views,
-        "interactions": profile.interactions,
-        "new_followers": profile.new_followers,
-        "messages": profile.messages,
-        "shares": profile.shares
-    }
-    profile_dict["screenshot_data"] = screenshot_data
+    try:
+        profile_dict = {
+            "username": profile.username,
+            "followers": profile.followers or 0,
+            "following": profile.following or 0,
+            "posts_count": profile.posts_count or 0,
+            "bio": profile.bio or "",
+            "engagement_rate": float(profile.engagement_rate) if profile.engagement_rate else None,
+            "analyzed_at": profile.analyzed_at.isoformat() if profile.analyzed_at else None,
+            "created_at": profile.created_at.isoformat() if profile.created_at else None,
+            "updated_at": profile.updated_at.isoformat() if profile.updated_at else None
+        }
+        
+        # Добавляем дополнительные данные из базы
+        screenshot_data = {
+            "views": profile.views or 0,
+            "interactions": profile.interactions or 0,
+            "new_followers": profile.new_followers or 0,
+            "messages": profile.messages or 0,
+            "shares": profile.shares or 0
+        }
+        profile_dict["screenshot_data"] = screenshot_data
+    except Exception as e:
+        logger.error(f"Ошибка при формировании profile_dict для {username}: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при формировании данных: {str(e)}")
     
     # Добавляем отчеты из базы (если есть)
     if profile.report_ru or profile.report_en:
