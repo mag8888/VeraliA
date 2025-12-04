@@ -468,12 +468,38 @@
             // Показываем индикатор загрузки
             showPage('page3');
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = '<div class="loading">Создание скриншота профиля</div>';
+            resultsDiv.innerHTML = '<div class="loading">Создание скриншота профиля...</div>';
+            
+            let warningShown = false;
+            let timeoutId = setTimeout(() => {
+                if (!warningShown) {
+                    warningShown = true;
+                    resultsDiv.innerHTML = `
+                        <div style="background: #1a1a1a; border: 1px solid #f59e0b; border-radius: 8px; padding: 20px; text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">⏱</div>
+                            <h3 style="color: #ffffff; margin-bottom: 8px; font-size: 18px;">Создание скриншота занимает время</h3>
+                            <p style="color: #a8a8a8; margin-bottom: 16px; line-height: 1.5;">
+                                Создание скриншота и анализ профиля могут занять несколько минут.<br>
+                                Вы можете закрыть приложение - мы отправим вам уведомление в Telegram, когда анализ будет завершен.
+                            </p>
+                            <div style="margin-top: 20px; padding: 12px; background: #262626; border-radius: 6px;">
+                                <div style="color: #8e8e8e; font-size: 12px; margin-bottom: 4px;">Статус</div>
+                                <div style="color: #f59e0b; font-size: 14px; font-weight: 600;">Обработка в фоне...</div>
+                            </div>
+                            <button class="btn btn-secondary btn-full" onclick="goToProfilesList()" style="margin-top: 16px;">
+                                Вернуться к списку профилей
+                            </button>
+                        </div>
+                    `;
+                }
+            }, 30000); // 30 секунд
             
             try {
                 const response = await fetch(`/api/create-screenshot/${encodeURIComponent(currentUsername)}`, {
                     method: 'POST'
                 });
+                
+                clearTimeout(timeoutId);
                 
                 if (!response.ok) {
                     const errorData = await response.json();
