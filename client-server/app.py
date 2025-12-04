@@ -7,7 +7,7 @@ from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo, BotCommand
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import aiohttp
 from dotenv import load_dotenv
@@ -117,6 +117,14 @@ async def lifespan(app: FastAPI):
     
     await telegram_app.initialize()
     await telegram_app.start()
+    
+    # Устанавливаем команды бота (кнопки в меню)
+    commands = [
+        BotCommand("start", "Главное меню"),
+        BotCommand("profile", "Мои профили")
+    ]
+    await telegram_app.bot.set_my_commands(commands)
+    
     await telegram_app.updater.start_polling()
     logger.info("Telegram bot started successfully")
     yield
