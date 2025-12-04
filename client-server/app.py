@@ -11,6 +11,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 import aiohttp
 from dotenv import load_dotenv
 from cloudinary_storage import upload_image_from_bytes, get_example_urls, upload_examples_from_local
+import re
 
 load_dotenv()
 
@@ -31,6 +32,9 @@ if not TELEGRAM_BOT_TOKEN:
 PORT = int(os.getenv("PORT", 8000))
 # URL для связи с parsing server (Railway или локальный)
 PARSING_SERVER_URL = os.getenv("PARSING_SERVER_URL", f"http://localhost:8001")
+# Убеждаемся, что URL содержит протокол
+if PARSING_SERVER_URL and not PARSING_SERVER_URL.startswith(('http://', 'https://')):
+    PARSING_SERVER_URL = f"https://{PARSING_SERVER_URL}"
 # URL мини-приложения (должен быть HTTPS для Telegram WebApp)
 MINIAPP_URL = os.getenv("MINIAPP_URL", f"http://localhost:{PORT}/miniapp")
 
@@ -52,6 +56,33 @@ if USE_CLOUDINARY and not all([CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDI
 
 # Инициализация Telegram бота
 telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
+
+def extract_username_from_text(text: str) -> str:
+    """
+    Извлекает username Instagram из текста.
+    Поддерживает:
+    - URL: https://www.instagram.com/username/
+    - @username
+    - username
+    """
+    text = text.strip()
+    
+    # Если это URL Instagram
+    if 'instagram.com' in text:
+        # Извлекаем username из URL
+        match = re.search(r'instagram\.com/([^/?]+)', text)
+        if match:
+            return match.group(1)
+    
+    # Если начинается с @
+    if text.startswith('@'):
+        return text[1:]
+    
+    # Удаляем слэши и пробелы
+    username = text.strip('/').strip()
+    
+    return username
 
 
 @asynccontextmanager
@@ -233,11 +264,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик текстовых сообщений"""
     text = update.message.text.strip()
     
-    # Проверяем, является ли сообщение username
-    if text.startswith('@'):
-        username = text[1:]
-    else:
-        username = text
+    # Извлекаем username из текста (может быть URL, @username или просто username)
+    username = extract_username_from_text(text)
     
     # Сохраняем username в контексте пользователя
     context.user_data['username'] = username
@@ -476,6 +504,8 @@ async def upload_screenshot_from_miniapp(
 ):
     """API endpoint для загрузки скриншотов из мини-приложения"""
     try:
+        # Извлекаем username из текста (может быть URL)
+        username = extract_username_from_text(username)
         # Читаем файл
         file_bytes = await screenshot.read()
         

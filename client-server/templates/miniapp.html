@@ -360,19 +360,48 @@
             }
         }
         
+        function extractUsername(input) {
+            // Извлекаем username из URL или текста
+            let text = input.trim();
+            
+            // Если это URL Instagram
+            if (text.includes('instagram.com')) {
+                const match = text.match(/instagram\.com\/([^/?]+)/);
+                if (match) {
+                    return match[1];
+                }
+            }
+            
+            // Удаляем @ если есть
+            if (text.startsWith('@')) {
+                text = text.substring(1);
+            }
+            
+            // Удаляем слэши и пробелы
+            return text.replace(/^\/+|\/+$/g, '').trim();
+        }
+        
         async function loadUserData(tab = 'profile') {
-            const username = document.getElementById('usernameInput').value.trim();
+            const input = document.getElementById('usernameInput').value.trim();
             const resultsDiv = document.getElementById('results');
             
+            if (!input) {
+                resultsDiv.innerHTML = '<div class="error">Пожалуйста, введите username или URL</div>';
+                return;
+            }
+            
+            // Извлекаем username
+            const username = extractUsername(input);
+            
             if (!username) {
-                resultsDiv.innerHTML = '<div class="error">Пожалуйста, введите username</div>';
+                resultsDiv.innerHTML = '<div class="error">Не удалось извлечь username из введенного текста</div>';
                 return;
             }
             
             resultsDiv.innerHTML = '<div class="loading">Загрузка данных</div>';
             
             try {
-                const response = await fetch(`/api/data/${username}`);
+                const response = await fetch(`/api/data/${encodeURIComponent(username)}`);
                 
                 if (response.status === 404) {
                     resultsDiv.innerHTML = `
@@ -490,14 +519,22 @@
         
         async function handleFileUpload(event, type) {
             const file = event.target.files[0];
-            const username = window.currentUsername || document.getElementById('usernameInput').value.trim();
+            const input = window.currentUsername || document.getElementById('usernameInput').value.trim();
             
             if (!file) {
                 return;
             }
             
+            if (!input) {
+                alert('Сначала введите username Instagram или URL');
+                return;
+            }
+            
+            // Извлекаем username
+            const username = extractUsername(input);
+            
             if (!username) {
-                alert('Сначала введите username Instagram');
+                alert('Не удалось извлечь username из введенного текста');
                 return;
             }
             
