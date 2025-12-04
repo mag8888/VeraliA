@@ -356,6 +356,7 @@
         }
         
         let currentUsername = '';
+        let cameFromProfilePage = false; // Флаг для отслеживания, пришли ли мы со страницы профиля
         
         function extractUsername(input) {
             // Извлекаем username из URL или текста
@@ -397,6 +398,9 @@
             // Сохраняем username
             currentUsername = username;
             
+            // Сбрасываем флаг (мы пришли не со страницы профиля)
+            cameFromProfilePage = false;
+            
             // Показываем username на странице загрузки
             document.getElementById('displayUsername').textContent = username;
             
@@ -415,6 +419,9 @@
                 return;
             }
             
+            // Устанавливаем флаг, что мы пришли со страницы профиля
+            cameFromProfilePage = true;
+            
             // Показываем username на странице загрузки
             document.getElementById('displayUsername').textContent = currentUsername;
             
@@ -423,6 +430,7 @@
             if (backButton) {
                 const originalOnClick = backButton.onclick;
                 backButton.onclick = function() {
+                    cameFromProfilePage = false; // Сбрасываем флаг
                     showPage('page5');
                     // Восстанавливаем детали профиля
                     if (currentProfileData) {
@@ -606,16 +614,15 @@
                 }
                 
                 // Показываем успешное сообщение
-                // Проверяем, пришли ли мы со страницы профиля (page5)
-                const cameFromProfile = document.getElementById('page5').classList.contains('active') || 
-                                       (document.getElementById('page2').querySelector('.back-button')?.textContent?.includes('профилю'));
+                // Проверяем, пришли ли мы со страницы профиля
+                const cameFromProfile = cameFromProfilePage;
                 
                 resultsDiv.innerHTML = `
                     <div style="background: #1a1a1a; border: 1px solid #0095f6; border-radius: 8px; padding: 20px; text-align: center;">
                         <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
                         <h3 style="color: #ffffff; margin-bottom: 8px; font-size: 18px;">${cameFromProfile ? 'Данные обновлены!' : 'Скриншот загружен!'}</h3>
                         <p style="color: #a8a8a8; margin-bottom: 16px;">Данные для пользователя <strong>${currentUsername}</strong> ${cameFromProfile ? 'успешно обновлены' : 'сохранены'}</p>
-                        <button class="btn btn-full" onclick="${cameFromProfile ? `viewProfile('${currentUsername}')` : 'loadUserData()'}" style="margin-top: 12px;">
+                        <button class="btn btn-full" onclick="${cameFromProfile ? `viewProfile('${currentUsername}'); cameFromProfilePage = false;` : 'loadUserData()'}" style="margin-top: 12px;">
                             ${cameFromProfile ? 'Просмотреть обновленные данные' : 'Просмотреть данные'}
                         </button>
                         <div class="button-group" style="margin-top: 12px;">
@@ -624,7 +631,7 @@
                             </button>
                         </div>
                         ${cameFromProfile ? `
-                            <button class="btn btn-secondary btn-full" onclick="viewProfile('${currentUsername}')" style="margin-top: 8px;">
+                            <button class="btn btn-secondary btn-full" onclick="viewProfile('${currentUsername}'); cameFromProfilePage = false;" style="margin-top: 8px;">
                                 Вернуться к профилю
                             </button>
                         ` : `
