@@ -29,7 +29,19 @@
   - Сохраните изменения
 - Railway автоматически найдет Dockerfile в `parsing-server/`
 
-### 3. Переменные окружения
+### 3. Настройки Build (ВАЖНО!)
+
+Для каждого сервиса (Client Server и Parsing Server):
+
+1. Откройте **Settings** → раздел **"Build"**
+2. **Custom Build Command**: **ОСТАВЬТЕ ПУСТЫМ** (удалите `npm run build` если там что-то есть!)
+3. **Dockerfile Path**: `Dockerfile` (или оставьте пустым)
+4. **Watch Paths**: можно оставить пустым
+5. Сохраните изменения
+
+**Важно:** Custom Build Command должно быть пустым для Dockerfile проектов!
+
+### 4. Переменные окружения
 
 #### Client Server Variables:
 ```
