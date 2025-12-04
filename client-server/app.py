@@ -195,9 +195,7 @@ async def analyze_instagram_callback(update: Update, context: ContextTypes.DEFAU
                         except Exception as e:
                             logger.error(f"Error sending example 2: {e}")
     
-    await query.message.reply_text(
-        "✅ Теперь отправьте username пользователя, а затем скриншот его статистики."
-    )
+    # Удаляем это сообщение, так как теперь показываем кнопки выше
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -212,11 +210,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Сохраняем username в контексте пользователя
     context.user_data['username'] = username
+    context.user_data['screenshot_type'] = None  # Сброс типа скриншота
+    
+    keyboard = [
+        [
+            InlineKeyboardButton("📱 Главная страница", callback_data="upload_main_page"),
+            InlineKeyboardButton("📊 Статистика", callback_data="upload_stats")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text(
         f"✅ Username получен: {username}\n\n"
-        "Теперь отправьте скриншот статистики профиля.\n"
-        "Скриншот должен содержать информацию о подписчиках, подписках и публикациях."
+        "Теперь выберите тип скриншота для загрузки:",
+        reply_markup=reply_markup
     )
 
 
