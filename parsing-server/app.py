@@ -512,6 +512,42 @@ async def delete_user_data(username: str, db: Session = Depends(get_db)):
     return {"status": "success", "message": f"Данные пользователя {username} удалены"}
 
 
+@app.delete("/api/users/all")
+async def delete_all_users(db: Session = Depends(get_db)):
+    """
+    Удаляет все профили из базы данных
+    
+    Returns:
+        dict: Результат удаления
+    """
+    try:
+        profiles = db.query(InstagramProfile).all()
+        count = len(profiles)
+        
+        # Удаляем файлы скриншотов
+        for profile in profiles:
+            if profile.screenshot_path and os.path.exists(profile.screenshot_path):
+                try:
+                    os.remove(profile.screenshot_path)
+                except Exception as e:
+                    logger.warning(f"Не удалось удалить файл {profile.screenshot_path}: {e}")
+        
+        # Удаляем все профили из базы
+        db.query(InstagramProfile).delete()
+        db.commit()
+        
+        logger.info(f"Удалено {count} профилей из базы данных")
+        return {
+            "status": "success",
+            "message": f"Удалено {count} профилей",
+            "deleted_count": count
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Ошибка при удалении всех профилей: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при удалении: {str(e)}")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=PORT)

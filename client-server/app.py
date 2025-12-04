@@ -911,6 +911,27 @@ async def get_user_data(username: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@app.delete("/api/delete-all-profiles")
+async def delete_all_profiles():
+    """Удаление всех профилей из базы данных"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            delete_url = f"{PARSING_SERVER_URL}/api/users/all"
+            if not delete_url.startswith(('http://', 'https://')):
+                delete_url = f"https://{delete_url}"
+            
+            async with session.delete(delete_url) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return JSONResponse(result)
+                else:
+                    error_text = await response.text()
+                    raise HTTPException(status_code=response.status, detail=error_text)
+    except Exception as e:
+        logger.error(f"Error deleting all profiles: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/report/{username}")
 async def get_user_report(username: str):
     """Получение детального отчета по профилю"""
