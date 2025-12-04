@@ -608,6 +608,72 @@ async def get_all_users(db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/data/{username}/update-profile")
+async def update_profile_data(username: str, db: Session = Depends(get_db)):
+    """
+    Принудительно обновляет данные профиля из скриншота Instagram
+    
+    Args:
+        username: Username Instagram пользователя
+        
+    Returns:
+        dict: Обновленные данные профиля
+    """
+    try:
+        profile = db.query(InstagramProfile).filter(
+            InstagramProfile.username == username
+        ).first()
+        
+        if not profile:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Создаем скриншот профиля для получения актуальных данных
+        screenshot_path = await screenshot_service.take_profile_screenshot(username)
+        if not screenshot_path:
+            raise HTTPException(status_code=500, detail="Не удалось создать скриншот профиля")
+        
+        # Парсим скриншот
+        parsed_data = parser.parse_screenshot(screenshot_path)
+        
+        # Обновляем данные профиля
+        if parsed_data.get('followers', 0) > 0:
+            profile.followers = parsed_data.get('followers', profile.followers)
+        if parsed_data.get('following', 0) > 0:
+            profile.following = parsed_data.get('following', profile.following)
+        if parsed_data.get('posts_count', 0) > 0:
+            profile.posts_count = parsed_data.get('posts_count', profile.posts_count)
+        if parsed_data.get('bio'):
+            profile.bio = parsed_data.get('bio', profile.bio)
+        if parsed_data.get('engagement_rate'):
+            profile.engagement_rate = parsed_data.get('engagement_rate', profile.engagement_rate)
+        
+        profile.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(profile)
+        
+        logger.info(f"Данные профиля {username} обновлены: followers={profile.followers}, posts={profile.posts_count}")
+        
+        return {
+            "status": "success",
+            "message": "Данные профиля успешно обновлены",
+            "data": {
+                "username": profile.username,
+                "followers": profile.followers,
+                "following": profile.following,
+                "posts_count": profile.posts_count,
+                "bio": profile.bio,
+                "engagement_rate": profile.engagement_rate,
+                "updated_at": profile.updated_at.isoformat()
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Ошибка при обновлении данных профиля: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка: {str(e)}")
+
+
 @app.post("/api/data/{username}/regenerate-report")
 async def regenerate_gpt_report(username: str, db: Session = Depends(get_db)):
     """
