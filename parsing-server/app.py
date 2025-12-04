@@ -32,8 +32,19 @@ screenshot_service = InstagramScreenshotService()
 # Инициализация генератора отчетов
 report_generator = InstagramReportGenerator()
 
-# Инициализация GPT анализатора
-gpt_analyzer = GPTAnalyzer()
+# GPT анализатор будет инициализирован при первом использовании
+gpt_analyzer = None
+
+def get_gpt_analyzer():
+    """Ленивая инициализация GPT анализатора"""
+    global gpt_analyzer
+    if gpt_analyzer is None:
+        try:
+            gpt_analyzer = GPTAnalyzer()
+        except Exception as e:
+            logger.error(f"Ошибка инициализации GPT анализатора: {e}")
+            gpt_analyzer = None
+    return gpt_analyzer
 
 # Конфигурация
 PORT = int(os.getenv("PORT", 8001))
@@ -177,7 +188,8 @@ async def analyze_instagram(
             }
             
             # Генерируем отчет с помощью GPT (если доступен)
-            gpt_reports = gpt_analyzer.generate_report(profile_dict, screenshot_data)
+            analyzer = get_gpt_analyzer()
+            gpt_reports = analyzer.generate_report(profile_dict, screenshot_data) if analyzer else {"ru": "", "en": ""}
             
             # Сохраняем GPT отчеты в базу
             if gpt_reports.get("ru") or gpt_reports.get("en"):
