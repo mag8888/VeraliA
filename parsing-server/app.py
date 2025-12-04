@@ -259,8 +259,35 @@ async def analyze_link_only(username: str, db: Session = Depends(get_db)):
             db.refresh(profile)
             logger.info(f"Создан новый профиль {username} для анализа только по ссылке")
         
-        # Пытаемся получить данные профиля из Instagram (если есть скриншот)
-        # Если нет - используем существующие данные или минимальные
+        # Пытаемся получить актуальные данные профиля из Instagram через скриншот
+        # Если скриншота нет, используем существующие данные из базы
+        try:
+            # Пытаемся создать скриншот профиля для получения актуальных данных
+            screenshot_path = await screenshot_service.take_profile_screenshot(username)
+            if screenshot_path:
+                # Парсим скриншот для получения актуальных данных
+                parsed_data = parser.parse_screenshot(screenshot_path)
+                
+                # Обновляем данные профиля актуальными значениями
+                if parsed_data.get('followers', 0) > 0:
+                    profile.followers = parsed_data.get('followers', profile.followers)
+                if parsed_data.get('following', 0) > 0:
+                    profile.following = parsed_data.get('following', profile.following)
+                if parsed_data.get('posts_count', 0) > 0:
+                    profile.posts_count = parsed_data.get('posts_count', profile.posts_count)
+                if parsed_data.get('bio'):
+                    profile.bio = parsed_data.get('bio', profile.bio)
+                if parsed_data.get('engagement_rate'):
+                    profile.engagement_rate = parsed_data.get('engagement_rate', profile.engagement_rate)
+                
+                profile.updated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(profile)
+                logger.info(f"Данные профиля {username} обновлены из скриншота")
+        except Exception as e:
+            logger.warning(f"Не удалось обновить данные из скриншота: {e}. Используем существующие данные.")
+        
+        # Используем актуальные данные профиля
         profile_dict = {
             "username": profile.username,
             "followers": profile.followers,
