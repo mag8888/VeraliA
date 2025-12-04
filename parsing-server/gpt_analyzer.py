@@ -98,6 +98,7 @@ class GPTAnalyzer:
         has_screenshot_data = any([views > 0, interactions > 0, new_followers > 0, messages > 0, shares > 0])
         
         # Форматируем данные профиля
+        username = profile_data.get('username', 'unknown')
         followers_text = f"{followers:,}" if followers > 0 else "не указано"
         following_text = f"{following:,}" if following > 0 else "не указано"
         posts_text = f"{posts_count:,}" if posts_count > 0 else "неизвестно"
@@ -122,7 +123,7 @@ class GPTAnalyzer:
         else:
             data_section += "\n\nПримечание: Статистика за последние 30 дней недоступна (скриншот профессиональной панели не загружен). Анализ выполнен на основе публичных данных профиля."
         
-        prompt = f"""Проанализируй Instagram аккаунт @romanpopular на основе предоставленных данных.
+        prompt = f"""Проанализируй Instagram аккаунт @{username} на основе предоставленных данных.
 
 {data_section}
 
