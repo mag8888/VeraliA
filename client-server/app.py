@@ -436,10 +436,15 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             logger.info(f"Отправка запроса на парсинг: {parse_url}")
             
-            async with session.post(
-                parse_url,
-                data=data
-            ) as response:
+            # Увеличиваем таймаут для парсинга
+            timeout = aiohttp.ClientTimeout(total=120)  # 2 минуты
+                
+            try:
+                async with session.post(
+                    parse_url,
+                    data=data,
+                    timeout=timeout
+                ) as response:
                     if response.status == 200:
                         result = await response.json()
                         screenshot_type_name = "главной страницы" if screenshot_type == 'main_page' else "статистики"
@@ -452,9 +457,20 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         context.user_data['screenshot_type'] = None
                     else:
                         error_text = await response.text()
+                        try:
+                            error_json = await response.json()
+                            error_message = error_json.get('message', error_json.get('detail', error_text))
+                        except:
+                            error_message = error_text
+                        
                         await update.message.reply_text(
-                            f"❌ Ошибка при анализе: {error_text}"
+                            f"❌ Ошибка при анализе: {error_message}"
                         )
+            except aiohttp.ClientError as e:
+                logger.error(f"Ошибка соединения с parsing server: {e}")
+                await update.message.reply_text(
+                    f"❌ Parsing Server недоступен. Проверьте настройки PARSING_SERVER_URL."
+                )
     except Exception as e:
         logger.error(f"Error sending to parsing server: {e}")
         await update.message.reply_text(
