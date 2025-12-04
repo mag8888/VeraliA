@@ -1,0 +1,12 @@
+# Nixpacks конфигурация для автоматического определения проекта
+# Railway автоматически использует этот файл если нет Dockerfile
+
+[phases.setup]
+nixPkgs = ["python311"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python app.py"
+
