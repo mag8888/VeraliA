@@ -10,6 +10,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppI
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import aiohttp
 from dotenv import load_dotenv
+from cloudinary_storage import upload_image_from_bytes, list_examples
 
 load_dotenv()
 
@@ -38,6 +39,16 @@ UPLOADS_DIR = "uploads"
 EXAMPLES_DIR = "examples"
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 os.makedirs(EXAMPLES_DIR, exist_ok=True)
+
+# Настройка Cloudinary (опционально)
+USE_CLOUDINARY = os.getenv("USE_CLOUDINARY", "false").lower() == "true"
+CLOUDINARY_CLOUD_NAME = os.getenv("CLOUDINARY_CLOUD_NAME")
+CLOUDINARY_API_KEY = os.getenv("CLOUDINARY_API_KEY")
+CLOUDINARY_API_SECRET = os.getenv("CLOUDINARY_API_SECRET")
+
+if USE_CLOUDINARY and not all([CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET]):
+    logger.warning("Cloudinary не настроен полностью. Используется локальное хранилище.")
+    USE_CLOUDINARY = False
 
 # Инициализация Telegram бота
 telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -92,34 +103,48 @@ async def analyze_instagram_callback(update: Update, context: ContextTypes.DEFAU
     )
     
     # Отправляем примеры скриншотов
-    examples_dir = "examples"
-    if os.path.exists(examples_dir):
-        example_files = [f for f in os.listdir(examples_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
-        if example_files:
-            # Отправляем первый пример
-            example_path = os.path.join(examples_dir, example_files[0])
-            if os.path.exists(example_path):
+    if USE_CLOUDINARY:
+        # Получаем примеры из Cloudinary
+        examples = list_examples("verali/examples")
+        if examples:
+            for i, example in enumerate(examples[:2], 1):
                 try:
-                    with open(example_path, 'rb') as photo:
-                        await query.message.reply_photo(
-                            photo=photo,
-                            caption="📸 Пример скриншота 1:\nСкриншот профиля Instagram с основной статистикой"
-                        )
+                    await query.message.reply_photo(
+                        photo=example["url"],
+                        caption=f"📸 Пример скриншота {i}:\n{'Скриншот профиля Instagram с основной статистикой' if i == 1 else 'Скриншот профессиональной панели Instagram'}"
+                    )
                 except Exception as e:
-                    logger.error(f"Error sending example 1: {e}")
-            
-            # Отправляем второй пример, если есть
-            if len(example_files) > 1:
-                example_path = os.path.join(examples_dir, example_files[1])
+                    logger.error(f"Error sending example {i} from Cloudinary: {e}")
+    else:
+        # Получаем примеры из локального хранилища
+        examples_dir = "examples"
+        if os.path.exists(examples_dir):
+            example_files = [f for f in os.listdir(examples_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+            if example_files:
+                # Отправляем первый пример
+                example_path = os.path.join(examples_dir, example_files[0])
                 if os.path.exists(example_path):
                     try:
                         with open(example_path, 'rb') as photo:
                             await query.message.reply_photo(
                                 photo=photo,
-                                caption="📸 Пример скриншота 2:\nСкриншот профессиональной панели Instagram"
+                                caption="📸 Пример скриншота 1:\nСкриншот профиля Instagram с основной статистикой"
                             )
                     except Exception as e:
-                        logger.error(f"Error sending example 2: {e}")
+                        logger.error(f"Error sending example 1: {e}")
+                
+                # Отправляем второй пример, если есть
+                if len(example_files) > 1:
+                    example_path = os.path.join(examples_dir, example_files[1])
+                    if os.path.exists(example_path):
+                        try:
+                            with open(example_path, 'rb') as photo:
+                                await query.message.reply_photo(
+                                    photo=photo,
+                                    caption="📸 Пример скриншота 2:\nСкриншот профессиональной панели Instagram"
+                                )
+                        except Exception as e:
+                            logger.error(f"Error sending example 2: {e}")
     
     await query.message.reply_text(
         "✅ Теперь отправьте username пользователя, а затем скриншот его статистики."
@@ -167,10 +192,21 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Отправляем запрос на сервер парсинга
     try:
         async with aiohttp.ClientSession() as session:
-            with open(file_path, 'rb') as f:
-                data = aiohttp.FormData()
-                data.add_field('username', username)
-                data.add_field('screenshot', f, filename=f'{photo.file_id}.jpg')
+            data = aiohttp.FormData()
+            data.add_field('username', username)
+            
+            # Используем файл из Cloudinary или локального хранилища
+            if cloudinary_url:
+                # Если файл в Cloudinary, отправляем URL
+                data.add_field('screenshot_url', cloudinary_url)
+                # Также отправляем файл для парсинга
+                data.add_field('screenshot', file_bytes, filename=f'{username}.jpg', content_type='image/jpeg')
+            elif file_path and os.path.exists(file_path):
+                with open(file_path, 'rb') as f:
+                    data.add_field('screenshot', f, filename=f'{username}.jpg')
+            else:
+                # Отправляем байты напрямую
+                data.add_field('screenshot', file_bytes, filename=f'{username}.jpg', content_type='image/jpeg')
                 
                 async with session.post(
                     f"{PARSING_SERVER_URL}/api/analyze",
