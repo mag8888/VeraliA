@@ -785,6 +785,8 @@
                 
                 const data = await response.json();
                 
+                console.log('Загруженные данные:', data); // Отладка
+                
                 // Объединяем данные профиля и отчет
                 const analyticsData = {
                     ...data,
@@ -793,11 +795,33 @@
                     report_generated_at: data.report_generated_at
                 };
                 
-                if (analyticsData.report && (analyticsData.report.ru || analyticsData.report.en)) {
+                console.log('Данные для аналитики:', analyticsData); // Отладка
+                console.log('Отчет:', analyticsData.report); // Отладка
+                
+                // Проверяем наличие отчета
+                const hasReport = analyticsData.report && (analyticsData.report.ru || analyticsData.report.en);
+                
+                if (hasReport) {
                     // Отображаем аналитику с графиками
                     displayAnalytics(analyticsData);
                 } else {
-                    throw new Error('Отчет еще не сгенерирован. Пожалуйста, подождите или загрузите скриншот еще раз.');
+                    // Показываем данные даже без отчета, но с предупреждением
+                    analyticsDiv.innerHTML = `
+                        <div class="error" style="padding: 20px; text-align: center;">
+                            <div style="font-size: 24px; margin-bottom: 12px;">⏳</div>
+                            <h3 style="color: #ffffff; margin-bottom: 8px;">Отчет еще не сгенерирован</h3>
+                            <p style="color: #a8a8a8; margin-bottom: 16px; line-height: 1.6;">
+                                GPT анализ еще не готов для этого профиля.<br>
+                                Пожалуйста, загрузите скриншот статистики для генерации отчета.
+                            </p>
+                            <button class="btn btn-full" onclick="updateProfileData()" style="background: #0095f6; margin-top: 12px;">
+                                📷 Загрузить скриншот
+                            </button>
+                            <button class="btn btn-secondary btn-full" onclick="goToProfilesList()" style="margin-top: 8px;">
+                                Назад к списку
+                            </button>
+                        </div>
+                    `;
                 }
                 
             } catch (error) {
