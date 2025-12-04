@@ -328,9 +328,14 @@
             <div id="page4" class="page">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h2 style="font-size: 20px; font-weight: 600;">Сохраненные профили</h2>
-                    <button class="btn" onclick="goBackToPage1()" style="width: auto; padding: 8px 16px;">
-                        + Добавить
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn" onclick="clearAllData()" style="width: auto; padding: 8px 12px; background: #ed4956; font-size: 12px;">
+                            🗑️ Очистить
+                        </button>
+                        <button class="btn" onclick="goBackToPage1()" style="width: auto; padding: 8px 16px;">
+                            + Добавить
+                        </button>
+                    </div>
                 </div>
                 
                 <div id="profilesList">
