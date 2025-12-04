@@ -189,7 +189,14 @@ async def analyze_instagram(
             
             # Генерируем отчет с помощью GPT (если доступен)
             analyzer = get_gpt_analyzer()
-            gpt_reports = analyzer.generate_report(profile_dict, screenshot_data) if analyzer else {"ru": "", "en": ""}
+            if analyzer and analyzer.client:
+                try:
+                    gpt_reports = analyzer.generate_report(profile_dict, screenshot_data)
+                except Exception as e:
+                    logger.error(f"Ошибка генерации GPT отчета: {e}")
+                    gpt_reports = {"ru": "", "en": ""}
+            else:
+                gpt_reports = {"ru": "", "en": ""}
             
             # Сохраняем GPT отчеты в базу
             if gpt_reports.get("ru") or gpt_reports.get("en"):
