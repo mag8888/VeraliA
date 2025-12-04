@@ -12,6 +12,7 @@ from database import init_db, get_db, InstagramProfile
 from image_parser import InstagramScreenshotParser
 from screenshot_service import InstagramScreenshotService
 from gpt_analyzer import GPTAnalyzer
+from profile_scraper import InstagramProfileScraper
 
 load_dotenv()
 
@@ -27,6 +28,9 @@ parser = InstagramScreenshotParser()
 
 # Инициализация сервиса скриншотов
 screenshot_service = InstagramScreenshotService()
+
+# Инициализация скрапера профилей
+profile_scraper = InstagramProfileScraper()
 
 # GPT анализатор будет инициализирован при первом использовании
 gpt_analyzer = None
@@ -248,14 +252,25 @@ async def analyze_link_only(username: str, db: Session = Depends(get_db)):
         logger.info(f"Получение актуальных данных профиля {username} для GPT анализа")
         
         try:
-            # Создаем скриншот главной страницы профиля для получения публичных данных
-            logger.info(f"Создание скриншота главной страницы для {username}")
-            screenshot_path = await screenshot_service.take_profile_screenshot(username)
-            
-            # Парсим скриншот для получения публичных данных
-            logger.info(f"Парсинг скриншота для получения данных профиля {username}")
-            parsed_data = parser.parse_screenshot(screenshot_path)
-            logger.info(f"Результаты парсинга для {username}: followers={parsed_data.get('followers')}, posts={parsed_data.get('posts_count')}, bio={bool(parsed_data.get('bio'))}")
+            # ПРИОРИТЕТ 1: Извлекаем данные напрямую из HTML (быстрее и точнее чем OCR)
+            logger.info(f"Извлечение данных профиля {username} из HTML")
+            try:
+                parsed_data = await profile_scraper.scrape_profile_data(username)
+                logger.info(f"Данные извлечены из HTML для {username}: followers={parsed_data.get('followers')}, posts={parsed_data.get('posts_count')}, bio={bool(parsed_data.get('bio'))}")
+                
+                # Если данные не извлечены, используем скриншот как fallback
+                if parsed_data.get('followers', 0) == 0 and parsed_data.get('posts_count', 0) == 0:
+                    logger.info(f"Данные из HTML неполные, используем скриншот как fallback для {username}")
+                    screenshot_path = await screenshot_service.take_profile_screenshot(username)
+                    screenshot_data = parser.parse_screenshot(screenshot_path)
+                    # Объединяем данные (приоритет HTML, затем скриншот)
+                    parsed_data = {**screenshot_data, **{k: v for k, v in parsed_data.items() if v}}
+            except Exception as scrape_error:
+                logger.warning(f"Ошибка при извлечении данных из HTML: {scrape_error}, используем скриншот")
+                # Fallback на скриншот
+                screenshot_path = await screenshot_service.take_profile_screenshot(username)
+                parsed_data = parser.parse_screenshot(screenshot_path)
+                logger.info(f"Результаты парсинга скриншота для {username}: followers={parsed_data.get('followers')}, posts={parsed_data.get('posts_count')}, bio={bool(parsed_data.get('bio'))}")
             
             if not profile:
                 # Создаем новый профиль с данными
