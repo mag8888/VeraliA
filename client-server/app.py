@@ -112,11 +112,21 @@ async def analyze_instagram_callback(update: Update, context: ContextTypes.DEFAU
     query = update.callback_query
     await query.answer()
     
+    keyboard = [
+        [
+            InlineKeyboardButton("📱 Главная страница", callback_data="upload_main_page"),
+            InlineKeyboardButton("📊 Статистика", callback_data="upload_stats")
+        ],
+        [InlineKeyboardButton("❌ Отмена", callback_data="cancel_upload")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
     await query.edit_message_text(
-        "📸 Для анализа Instagram профиля:\n\n"
-        "1. Отправьте username пользователя (например: @username или username)\n"
-        "2. Отправьте скриншот статистики профиля\n\n"
-        "Сейчас покажу примеры скриншотов..."
+        "📸 Выберите тип скриншота для загрузки:\n\n"
+        "• 📱 Главная страница - скриншот профиля с основной информацией\n"
+        "• 📊 Статистика - скриншот профессиональной панели\n\n"
+        "Сначала отправьте username пользователя, затем выберите тип скриншота.",
+        reply_markup=reply_markup
     )
     
     # Отправляем примеры скриншотов
@@ -210,13 +220,91 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
+async def upload_main_page_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик кнопки загрузки главной страницы"""
+    query = update.callback_query
+    await query.answer()
+    
+    username = context.user_data.get('username')
+    if not username:
+        await query.edit_message_text(
+            "❌ Сначала отправьте username пользователя Instagram."
+        )
+        return
+    
+    context.user_data['screenshot_type'] = 'main_page'
+    
+    await query.edit_message_text(
+        f"📱 Загрузка главной страницы для: {username}\n\n"
+        "Отправьте скриншот главной страницы профиля Instagram.\n"
+        "Скриншот должен содержать:\n"
+        "• Аватар профиля\n"
+        "• Количество публикаций, подписчиков, подписок\n"
+        "• Биографию"
+    )
+
+
+async def upload_stats_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик кнопки загрузки статистики"""
+    query = update.callback_query
+    await query.answer()
+    
+    username = context.user_data.get('username')
+    if not username:
+        await query.edit_message_text(
+            "❌ Сначала отправьте username пользователя Instagram."
+        )
+        return
+    
+    context.user_data['screenshot_type'] = 'stats'
+    
+    await query.edit_message_text(
+        f"📊 Загрузка статистики для: {username}\n\n"
+        "Отправьте скриншот профессиональной панели Instagram.\n"
+        "Скриншот должен содержать:\n"
+        "• Просмотры профиля\n"
+        "• Взаимодействия\n"
+        "• Новые подписчики\n"
+        "• Детальную статистику"
+    )
+
+
+async def cancel_upload_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик кнопки отмены"""
+    query = update.callback_query
+    await query.answer()
+    
+    context.user_data['username'] = None
+    context.user_data['screenshot_type'] = None
+    
+    await query.edit_message_text(
+        "❌ Загрузка отменена.\n\n"
+        "Используйте /start для начала работы."
+    )
+
+
 async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик фотографий (скриншотов)"""
     username = context.user_data.get('username')
+    screenshot_type = context.user_data.get('screenshot_type')
     
     if not username:
         await update.message.reply_text(
             "❌ Сначала отправьте username пользователя Instagram."
+        )
+        return
+    
+    if not screenshot_type:
+        keyboard = [
+            [
+                InlineKeyboardButton("📱 Главная страница", callback_data="upload_main_page"),
+                InlineKeyboardButton("📊 Статистика", callback_data="upload_stats")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(
+            "❌ Выберите тип скриншота перед отправкой:",
+            reply_markup=reply_markup
         )
         return
     
@@ -273,11 +361,14 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ) as response:
                     if response.status == 200:
                         result = await response.json()
+                        screenshot_type_name = "главной страницы" if screenshot_type == 'main_page' else "статистики"
                         await update.message.reply_text(
-                            f"✅ Анализ завершен!\n\n"
+                            f"✅ Скриншот {screenshot_type_name} загружен!\n\n"
                             f"📊 Данные сохранены для пользователя: {username}\n\n"
                             "Откройте мини-приложение для просмотра статистики."
                         )
+                        # Сброс типа скриншота после успешной загрузки
+                        context.user_data['screenshot_type'] = None
                     else:
                         error_text = await response.text()
                         await update.message.reply_text(
@@ -293,6 +384,9 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Регистрация обработчиков
 telegram_app.add_handler(CommandHandler("start", start_command))
 telegram_app.add_handler(CallbackQueryHandler(analyze_instagram_callback, pattern="^analyze_instagram$"))
+telegram_app.add_handler(CallbackQueryHandler(upload_main_page_callback, pattern="^upload_main_page$"))
+telegram_app.add_handler(CallbackQueryHandler(upload_stats_callback, pattern="^upload_stats$"))
+telegram_app.add_handler(CallbackQueryHandler(cancel_upload_callback, pattern="^cancel_upload$"))
 telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 telegram_app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 

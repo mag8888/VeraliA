@@ -60,6 +60,7 @@ async def health_check():
 async def analyze_instagram(
     username: str = Form(...),
     screenshot: UploadFile = File(...),
+    screenshot_type: str = Form(None),  # Тип скриншота: main_page или stats
     db: Session = Depends(get_db)
 ):
     """
@@ -74,7 +75,8 @@ async def analyze_instagram(
     """
     try:
         # Сохраняем загруженный файл
-        file_path = os.path.join(UPLOAD_DIR, f"{username}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
+        screenshot_type_suffix = f"_{screenshot_type}" if screenshot_type else ""
+        file_path = os.path.join(UPLOAD_DIR, f"{username}{screenshot_type_suffix}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
         
         async with aiofiles.open(file_path, 'wb') as f:
             content = await screenshot.read()
