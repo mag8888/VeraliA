@@ -157,7 +157,91 @@ async def analyze_instagram(
             
     except Exception as e:
         logger.error(f"Ошибка при анализе: {e}")
-        raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера: {str(e)}")
+
+
+@app.post("/api/screenshot/{username}")
+async def create_screenshot(username: str, db: Session = Depends(get_db)):
+    """
+    Создает скриншот главной страницы Instagram профиля
+    
+    Args:
+        username: Username Instagram профиля
+        
+    Returns:
+        dict: Результат создания скриншота
+    """
+    try:
+        # Извлекаем username из текста (может быть URL)
+        if 'instagram.com' in username:
+            import re
+            match = re.search(r'instagram\.com/([^/?&#]+)', username)
+            if match:
+                username = match.group(1)
+        
+        username = username.lstrip('@').strip()
+        
+        logger.info(f"Создание скриншота для: {username}")
+        
+        # Создаем скриншот
+        screenshot_path = await screenshot_service.take_profile_screenshot(username)
+        
+        # Парсим скриншот
+        parsed_data = parser.parse_screenshot(screenshot_path)
+        
+        # Сохраняем в базу данных
+        try:
+            profile = db.query(InstagramProfile).filter(
+                InstagramProfile.username == username
+            ).first()
+            
+            if profile:
+                # Обновляем существующий профиль
+                profile.followers = parsed_data.get('followers', 0)
+                profile.following = parsed_data.get('following', 0)
+                profile.posts_count = parsed_data.get('posts_count', 0)
+                profile.bio = parsed_data.get('bio')
+                profile.engagement_rate = parsed_data.get('engagement_rate')
+                profile.screenshot_path = screenshot_path
+                profile.updated_at = datetime.utcnow()
+            else:
+                # Создаем новый профиль
+                profile = InstagramProfile(
+                    username=username,
+                    followers=parsed_data.get('followers', 0),
+                    following=parsed_data.get('following', 0),
+                    posts_count=parsed_data.get('posts_count', 0),
+                    bio=parsed_data.get('bio'),
+                    engagement_rate=parsed_data.get('engagement_rate'),
+                    screenshot_path=screenshot_path
+                )
+                db.add(profile)
+            
+            db.commit()
+            db.refresh(profile)
+            
+            return {
+                "success": True,
+                "message": "Скриншот создан и данные сохранены",
+                "screenshot_path": screenshot_path,
+                "data": {
+                    "username": profile.username,
+                    "followers": profile.followers,
+                    "following": profile.following,
+                    "posts_count": profile.posts_count,
+                    "bio": profile.bio,
+                    "engagement_rate": profile.engagement_rate,
+                    "analyzed_at": profile.analyzed_at.isoformat() if profile.analyzed_at else None
+                }
+            }
+        except IntegrityError as e:
+            db.rollback()
+            logger.error(f"Ошибка при сохранении в БД: {e}")
+            raise HTTPException(status_code=400, detail="Ошибка при сохранении данных")
+            
+    except Exception as e:
+        logger.error(f"Ошибка при создании скриншота: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка: {str(e)}")
 
 
 @app.get("/api/data/{username}")
