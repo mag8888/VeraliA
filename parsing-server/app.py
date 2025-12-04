@@ -483,7 +483,30 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
         
         if not profile:
             logger.warning(f"Профиль {username} не найден в базе данных")
-            raise HTTPException(status_code=404, detail="User not found")
+            # Возвращаем пустые данные вместо ошибки 404
+            return {
+                "username": username,
+                "followers": 0,
+                "following": 0,
+                "posts_count": 0,
+                "bio": "",
+                "engagement_rate": None,
+                "analyzed_at": None,
+                "created_at": None,
+                "updated_at": None,
+                "screenshot_data": {
+                    "views": 0,
+                    "interactions": 0,
+                    "new_followers": 0,
+                    "messages": 0,
+                    "shares": 0
+                },
+                "report": {
+                    "ru": "",
+                    "en": ""
+                },
+                "report_generated_at": None
+            }
         
         # Формируем базовый словарь с безопасной обработкой всех полей
         profile_dict = {
