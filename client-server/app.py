@@ -2,7 +2,7 @@ import os
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -465,6 +465,84 @@ async def miniapp(request: Request):
         "request": request,
         "bot_username": bot_username
     })
+
+
+@app.post("/api/upload-screenshot")
+async def upload_screenshot_from_miniapp(
+    request: Request,
+    username: str = Form(...),
+    screenshot_type: str = Form(...),
+    screenshot: UploadFile = File(...)
+):
+    """API endpoint для загрузки скриншотов из мини-приложения"""
+    try:
+        # Читаем файл
+        file_bytes = await screenshot.read()
+        
+        # Загружаем в Cloudinary или локально
+        file_path = None
+        cloudinary_url = None
+        
+        if USE_CLOUDINARY:
+            # Загружаем в Cloudinary
+            public_id = f"verali/uploads/{username}_{screenshot_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            result = upload_image_from_bytes(file_bytes, folder="verali/uploads", public_id=public_id)
+            if result.get("success"):
+                cloudinary_url = result.get("url")
+                logger.info(f"Изображение загружено в Cloudinary: {cloudinary_url}")
+            else:
+                logger.error(f"Ошибка загрузки в Cloudinary: {result.get('error')}")
+                # Fallback на локальное хранилище
+                file_path = os.path.join(UPLOADS_DIR, f"{username}_{screenshot_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
+                with open(file_path, 'wb') as f:
+                    f.write(file_bytes)
+        else:
+            # Сохраняем локально
+            file_path = os.path.join(UPLOADS_DIR, f"{username}_{screenshot_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
+            with open(file_path, 'wb') as f:
+                f.write(file_bytes)
+        
+        # Отправляем на сервер парсинга
+        async with aiohttp.ClientSession() as session:
+            data = aiohttp.FormData()
+            data.add_field('username', username)
+            data.add_field('screenshot_type', screenshot_type)
+            
+            # Используем файл из Cloudinary или локального хранилища
+            if cloudinary_url:
+                data.add_field('screenshot_url', cloudinary_url)
+                data.add_field('screenshot', file_bytes, filename=f'{username}_{screenshot_type}.jpg', content_type='image/jpeg')
+            elif file_path and os.path.exists(file_path):
+                with open(file_path, 'rb') as f:
+                    data.add_field('screenshot', f, filename=f'{username}_{screenshot_type}.jpg')
+            else:
+                data.add_field('screenshot', file_bytes, filename=f'{username}_{screenshot_type}.jpg', content_type='image/jpeg')
+            
+            async with session.post(
+                f"{PARSING_SERVER_URL}/api/analyze",
+                data=data
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return JSONResponse({
+                        "success": True,
+                        "message": f"Скриншот {screenshot_type} загружен и обработан",
+                        "data": result
+                    })
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Ошибка парсинга: {error_text}")
+                    return JSONResponse(
+                        {"success": False, "error": f"Ошибка обработки: {error_text}"},
+                        status_code=response.status
+                    )
+    
+    except Exception as e:
+        logger.error(f"Ошибка загрузки скриншота: {e}")
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
 
 
 @app.get("/api/data/{username}")
