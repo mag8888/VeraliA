@@ -10,7 +10,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppI
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 import aiohttp
 from dotenv import load_dotenv
-from cloudinary_storage import upload_image_from_bytes, list_examples
+from cloudinary_storage import upload_image_from_bytes, get_example_urls, upload_examples_from_local
 
 load_dotenv()
 
@@ -58,6 +58,23 @@ telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 async def lifespan(app: FastAPI):
     # Startup - запуск бота
     logger.info("Starting Telegram bot...")
+    
+    # Загружаем примеры в Cloudinary при первом запуске (если используется Cloudinary)
+    if USE_CLOUDINARY:
+        logger.info("Проверка примеров скриншотов в Cloudinary...")
+        try:
+            upload_result = upload_examples_from_local(EXAMPLES_DIR)
+            if upload_result.get("success") and upload_result.get("examples"):
+                logger.info(f"Примеры загружены в Cloudinary: {len(upload_result['examples'])} файлов")
+            else:
+                existing_examples = get_example_urls()
+                if existing_examples:
+                    logger.info(f"Примеры уже есть в Cloudinary: {len(existing_examples)} файлов")
+                else:
+                    logger.warning("Примеры не найдены. Добавьте скриншоты в client-server/examples/")
+        except Exception as e:
+            logger.error(f"Ошибка при загрузке примеров: {e}")
+    
     await telegram_app.initialize()
     await telegram_app.start()
     await telegram_app.updater.start_polling()
@@ -105,16 +122,38 @@ async def analyze_instagram_callback(update: Update, context: ContextTypes.DEFAU
     # Отправляем примеры скриншотов
     if USE_CLOUDINARY:
         # Получаем примеры из Cloudinary
-        examples = list_examples("verali/examples")
-        if examples:
-            for i, example in enumerate(examples[:2], 1):
+        example_urls = get_example_urls()
+        if example_urls:
+            captions = [
+                "📸 Пример скриншота 1:\nСкриншот профиля Instagram с основной статистикой",
+                "📸 Пример скриншота 2:\nСкриншот профессиональной панели Instagram"
+            ]
+            for i, url in enumerate(example_urls[:2], 1):
                 try:
                     await query.message.reply_photo(
-                        photo=example["url"],
-                        caption=f"📸 Пример скриншота {i}:\n{'Скриншот профиля Instagram с основной статистикой' if i == 1 else 'Скриншот профессиональной панели Instagram'}"
+                        photo=url,
+                        caption=captions[i-1] if i <= len(captions) else f"📸 Пример скриншота {i}"
                     )
                 except Exception as e:
                     logger.error(f"Error sending example {i} from Cloudinary: {e}")
+        else:
+            logger.warning("Примеры не найдены в Cloudinary. Используем локальные файлы.")
+            # Fallback на локальные файлы
+            examples_dir = EXAMPLES_DIR
+            if os.path.exists(examples_dir):
+                example_files = [f for f in os.listdir(examples_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+                if example_files:
+                    for i, filename in enumerate(example_files[:2], 1):
+                        example_path = os.path.join(examples_dir, filename)
+                        if os.path.exists(example_path):
+                            try:
+                                with open(example_path, 'rb') as photo:
+                                    await query.message.reply_photo(
+                                        photo=photo,
+                                        caption=f"📸 Пример скриншота {i}:\n{'Скриншот профиля Instagram с основной статистикой' if i == 1 else 'Скриншот профессиональной панели Instagram'}"
+                                    )
+                            except Exception as e:
+                                logger.error(f"Error sending example {i}: {e}")
     else:
         # Получаем примеры из локального хранилища
         examples_dir = "examples"
@@ -186,8 +225,28 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file = await telegram_app.bot.get_file(photo.file_id)
     
     # Скачиваем файл
-    file_path = os.path.join(UPLOADS_DIR, f"{username}_{photo.file_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
-    await file.download_to_drive(file_path)
+    file_bytes = await file.download_as_bytearray()
+    file_path = None
+    cloudinary_url = None
+    
+    if USE_CLOUDINARY:
+        # Загружаем в Cloudinary
+        public_id = f"verali/uploads/{username}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        result = upload_image_from_bytes(file_bytes, folder="verali/uploads", public_id=public_id)
+        if result.get("success"):
+            cloudinary_url = result.get("url")
+            logger.info(f"Изображение загружено в Cloudinary: {cloudinary_url}")
+        else:
+            logger.error(f"Ошибка загрузки в Cloudinary: {result.get('error')}")
+            # Fallback на локальное хранилище
+            file_path = os.path.join(UPLOADS_DIR, f"{username}_{photo.file_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
+            with open(file_path, 'wb') as f:
+                f.write(file_bytes)
+    else:
+        # Сохраняем локально
+        file_path = os.path.join(UPLOADS_DIR, f"{username}_{photo.file_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
+        with open(file_path, 'wb') as f:
+            f.write(file_bytes)
     
     # Отправляем запрос на сервер парсинга
     try:
@@ -208,7 +267,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Отправляем байты напрямую
                 data.add_field('screenshot', file_bytes, filename=f'{username}.jpg', content_type='image/jpeg')
                 
-                async with session.post(
+            async with session.post(
                     f"{PARSING_SERVER_URL}/api/analyze",
                     data=data
                 ) as response:

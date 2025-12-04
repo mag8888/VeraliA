@@ -167,3 +167,83 @@ def list_examples(folder: str = "verali/examples") -> list:
         logger.error(f"Ошибка при получении примеров: {e}")
         return []
 
+
+def upload_examples_from_local(examples_dir: str = "examples") -> dict:
+    """
+    Загружает примеры скриншотов из локальной директории в Cloudinary при первом запуске
+    
+    Args:
+        examples_dir: Локальная директория с примерами
+        
+    Returns:
+        dict: Результат загрузки с public_id примеров
+    """
+    result = {
+        "success": True,
+        "examples": []
+    }
+    
+    try:
+        if not os.path.exists(examples_dir):
+            logger.warning(f"Директория {examples_dir} не найдена")
+            return result
+        
+        # Проверяем, есть ли уже примеры в Cloudinary
+        existing_examples = list_examples("verali/examples")
+        if existing_examples:
+            logger.info("Примеры уже загружены в Cloudinary")
+            result["examples"] = [ex["public_id"] for ex in existing_examples]
+            return result
+        
+        # Загружаем примеры из локальной директории
+        example_files = [f for f in os.listdir(examples_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+        
+        for i, filename in enumerate(example_files[:2], 1):  # Максимум 2 примера
+            file_path = os.path.join(examples_dir, filename)
+            if os.path.exists(file_path):
+                public_id = f"verali/examples/example_{i}"
+                upload_result = upload_image(file_path, folder="verali/examples", public_id=public_id)
+                
+                if upload_result.get("success"):
+                    result["examples"].append(public_id)
+                    logger.info(f"Пример {i} загружен: {upload_result.get('url')}")
+                else:
+                    logger.error(f"Ошибка загрузки примера {i}: {upload_result.get('error')}")
+                    result["success"] = False
+        
+        return result
+    except Exception as e:
+        logger.error(f"Ошибка при загрузке примеров: {e}")
+        result["success"] = False
+        result["error"] = str(e)
+        return result
+
+
+def get_example_urls() -> list:
+    """
+    Получает URL примеров скриншотов из Cloudinary
+    
+    Returns:
+        list: Список URL примеров
+    """
+    try:
+        examples = list_examples("verali/examples")
+        if examples:
+            return [ex["url"] for ex in examples]
+        
+        # Если примеров нет, пытаемся загрузить из локальной директории
+        upload_result = upload_examples_from_local()
+        if upload_result.get("success") and upload_result.get("examples"):
+            # Получаем URL загруженных примеров
+            urls = []
+            for public_id in upload_result["examples"]:
+                url = get_image_url(public_id)
+                if url:
+                    urls.append(url)
+            return urls
+        
+        return []
+    except Exception as e:
+        logger.error(f"Ошибка при получении примеров: {e}")
+        return []
+
