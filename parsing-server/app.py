@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from database import init_db, get_db, InstagramProfile
 from image_parser import InstagramScreenshotParser
 from screenshot_service import InstagramScreenshotService
+from screenshot_service import InstagramScreenshotService
 
 load_dotenv()
 
@@ -23,6 +24,9 @@ logger = logging.getLogger(__name__)
 
 # Инициализация парсера
 parser = InstagramScreenshotParser()
+
+# Инициализация сервиса скриншотов
+screenshot_service = InstagramScreenshotService()
 
 # Конфигурация
 PORT = int(os.getenv("PORT", 8001))
