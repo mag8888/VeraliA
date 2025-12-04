@@ -617,6 +617,48 @@ async def get_user_data(username: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@app.post("/api/create-screenshot/{username}")
+async def create_screenshot_endpoint(username: str):
+    """
+    Создает скриншот Instagram профиля автоматически
+    
+    Args:
+        username: Username Instagram профиля или URL
+        
+    Returns:
+        dict: Результат создания скриншота
+    """
+    try:
+        # Извлекаем username
+        username = extract_username_from_text(username)
+        
+        async with aiohttp.ClientSession() as session:
+            # Формируем правильный URL
+            screenshot_url = f"{PARSING_SERVER_URL}/api/screenshot/{username}"
+            if not screenshot_url.startswith(('http://', 'https://')):
+                screenshot_url = f"https://{screenshot_url}"
+            
+            logger.info(f"Запрос на создание скриншота: {screenshot_url}")
+            
+            async with session.post(screenshot_url, timeout=aiohttp.ClientTimeout(total=60)) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return JSONResponse(result)
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Ошибка создания скриншота: {error_text}")
+                    return JSONResponse(
+                        {"success": False, "error": error_text},
+                        status_code=response.status
+                    )
+    except Exception as e:
+        logger.error(f"Ошибка при создании скриншота: {e}")
+        return JSONResponse(
+            {"success": False, "error": str(e)},
+            status_code=500
+        )
+
+
 @app.get("/api/users")
 async def get_all_users():
     """Получение списка всех пользователей"""

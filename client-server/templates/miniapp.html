@@ -303,9 +303,17 @@
                     <h3>📸 Загрузить скриншот статистики</h3>
                     <p>Выберите скриншот профессиональной панели Instagram с данными о просмотрах, взаимодействиях и подписчиках.</p>
                     
+                    <div class="button-group" style="margin-bottom: 12px;">
+                        <button class="btn btn-full" onclick="createAutoScreenshot()" style="background: #0095f6;">
+                            🤖 Создать скриншот автоматически
+                        </button>
+                    </div>
+                    
+                    <div style="text-align: center; margin: 12px 0; color: #8e8e8e; font-size: 12px;">или</div>
+                    
                     <input type="file" id="screenshotUpload" accept="image/*" onchange="handleFileUpload(event)">
-                    <button class="btn btn-full" onclick="document.getElementById('screenshotUpload').click()">
-                        📷 Выбрать скриншот
+                    <button class="btn btn-secondary btn-full" onclick="document.getElementById('screenshotUpload').click()">
+                        📷 Выбрать скриншот вручную
                     </button>
                 </div>
             </div>
@@ -408,6 +416,78 @@
             
             // Показываем нужную страницу
             document.getElementById(pageId).classList.add('active');
+        }
+        
+        async function createAutoScreenshot() {
+            if (!currentUsername) {
+                alert('Ошибка: username не найден');
+                return;
+            }
+            
+            // Показываем индикатор загрузки
+            showPage('page3');
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Создание скриншота профиля</div>';
+            
+            try {
+                const response = await fetch(`/api/create-screenshot/${encodeURIComponent(currentUsername)}`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Ошибка создания скриншота');
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Сохраняем данные профиля
+                    currentProfileData = result.data;
+                    
+                    // Показываем успешное сообщение
+                    resultsDiv.innerHTML = `
+                        <div style="background: #1a1a1a; border: 1px solid #0095f6; border-radius: 8px; padding: 20px; text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+                            <h3 style="color: #ffffff; margin-bottom: 8px; font-size: 18px;">Скриншот создан!</h3>
+                            <p style="color: #a8a8a8; margin-bottom: 16px;">Данные для пользователя <strong>${currentUsername}</strong> сохранены</p>
+                            <button class="btn btn-full" onclick="displayUserDataFromResult()" style="margin-top: 12px;">
+                                Просмотреть данные
+                            </button>
+                            <div class="button-group" style="margin-top: 12px;">
+                                <button class="btn btn-full" onclick="saveProfile()" style="background: #ed4956; border: 1px solid #ed4956;">
+                                    Сохранить профиль
+                                </button>
+                            </div>
+                            <button class="btn btn-secondary btn-full" onclick="goBackToPage1()" style="margin-top: 8px;">
+                                Загрузить другой профиль
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(result.error || 'Неизвестная ошибка');
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <div style="font-size: 24px; margin-bottom: 8px;">❌</div>
+                        <div>Ошибка: ${error.message}</div>
+                        <p style="margin-top: 12px; font-size: 12px; color: #8e8e8e;">
+                            Попробуйте загрузить скриншот вручную
+                        </p>
+                        <button class="btn btn-secondary btn-full" onclick="showPage('page2')" style="margin-top: 16px;">
+                            Загрузить вручную
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        function displayUserDataFromResult() {
+            if (currentProfileData) {
+                displayUserData(currentProfileData);
+            }
         }
         
         async function handleFileUpload(event) {

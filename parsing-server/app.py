@@ -10,6 +10,7 @@ import aiofiles
 from dotenv import load_dotenv
 from database import init_db, get_db, InstagramProfile
 from image_parser import InstagramScreenshotParser
+from screenshot_service import InstagramScreenshotService
 
 load_dotenv()
 
