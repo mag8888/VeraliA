@@ -23,6 +23,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Уменьшаем уровень логирования для httpx и telegram, чтобы не засорять логи рутинными запросами
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
+logging.getLogger("telegram.ext").setLevel(logging.WARNING)
+
 # Конфигурация
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not TELEGRAM_BOT_TOKEN:
