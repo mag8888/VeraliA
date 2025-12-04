@@ -253,8 +253,30 @@
                             📊 Посмотреть профиль
                         </button>
                     </div>
-                    <div class="button-group">
-                        <button class="btn btn-full" onclick="goToUploadPage()">Далее</button>
+                    
+                    <!-- Выбор типа анализа -->
+                    <div style="margin-top: 16px; padding: 16px; background: #1a1a1a; border-radius: 8px; border: 1px solid #262626;">
+                        <div style="color: #ffffff; font-size: 14px; font-weight: 600; margin-bottom: 12px;">Тип анализа:</div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #262626; border-radius: 8px; cursor: pointer; border: 2px solid #0095f6;" onclick="selectAnalysisType('link-only')">
+                                <input type="radio" name="analysisType" value="link-only" id="analysisTypeLinkOnly" checked style="width: 18px; height: 18px; cursor: pointer;">
+                                <div style="flex: 1;">
+                                    <div style="color: #ffffff; font-size: 14px; font-weight: 600;">📊 Анализ только по ссылке</div>
+                                    <div style="color: #8e8e8e; font-size: 12px; margin-top: 4px;">Быстрый анализ на основе публичных данных профиля</div>
+                                </div>
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 10px; padding: 12px; background: #262626; border-radius: 8px; cursor: pointer; border: 2px solid transparent;" onclick="selectAnalysisType('full')">
+                                <input type="radio" name="analysisType" value="full" id="analysisTypeFull" style="width: 18px; height: 18px; cursor: pointer;">
+                                <div style="flex: 1;">
+                                    <div style="color: #ffffff; font-size: 14px; font-weight: 600;">📸 Полный анализ (ссылка + скриншот)</div>
+                                    <div style="color: #8e8e8e; font-size: 12px; margin-top: 4px;">Детальный анализ с данными из профессиональной панели</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="button-group" style="margin-top: 16px;">
+                        <button class="btn btn-full" onclick="goToAnalysis()">Начать анализ</button>
                     </div>
                 </div>
                 
@@ -365,7 +387,31 @@
             return text.replace(/^\/+|\/+$/g, '').trim();
         }
         
-        function goToUploadPage() {
+        let selectedAnalysisType = 'link-only'; // По умолчанию анализ только по ссылке
+        
+        function selectAnalysisType(type) {
+            selectedAnalysisType = type;
+            
+            // Обновляем визуальное выделение
+            const linkOnlyLabel = document.querySelector('label[onclick="selectAnalysisType(\'link-only\')"]');
+            const fullLabel = document.querySelector('label[onclick="selectAnalysisType(\'full\')"]');
+            const linkOnlyRadio = document.getElementById('analysisTypeLinkOnly');
+            const fullRadio = document.getElementById('analysisTypeFull');
+            
+            if (type === 'link-only') {
+                linkOnlyLabel.style.border = '2px solid #0095f6';
+                fullLabel.style.border = '2px solid transparent';
+                linkOnlyRadio.checked = true;
+                fullRadio.checked = false;
+            } else {
+                linkOnlyLabel.style.border = '2px solid transparent';
+                fullLabel.style.border = '2px solid #0095f6';
+                linkOnlyRadio.checked = false;
+                fullRadio.checked = true;
+            }
+        }
+        
+        function goToAnalysis() {
             const input = document.getElementById('usernameInput').value.trim();
             
             if (!input) {
@@ -387,8 +433,99 @@
             // Сбрасываем флаг (мы пришли не со страницы профиля)
             cameFromProfilePage = false;
             
+            // Проверяем выбранный тип анализа
+            if (selectedAnalysisType === 'link-only') {
+                // Анализ только по ссылке - сразу запускаем
+                analyzeProfileOnly(username);
+            } else {
+                // Полный анализ - переходим на страницу загрузки скриншота
+                goToUploadPage();
+            }
+        }
+        
+        async function analyzeProfileOnly(username) {
+            // Переходим на страницу результатов
+            showPage('page3');
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Анализ профиля...</div>';
+            
+            let warningShown = false;
+            let timeoutId = setTimeout(() => {
+                if (!warningShown) {
+                    warningShown = true;
+                    resultsDiv.innerHTML = `
+                        <div style="background: #1a1a1a; border: 1px solid #f59e0b; border-radius: 8px; padding: 20px; text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">⏱</div>
+                            <h3 style="color: #ffffff; margin-bottom: 8px; font-size: 18px;">Анализ занимает время</h3>
+                            <p style="color: #a8a8a8; margin-bottom: 16px; line-height: 1.5;">
+                                Анализ профиля и генерация GPT отчета могут занять несколько минут.<br>
+                                Вы можете закрыть приложение - мы отправим вам уведомление в Telegram, когда анализ будет завершен.
+                            </p>
+                            <div style="margin-top: 20px; padding: 12px; background: #262626; border-radius: 6px;">
+                                <div style="color: #8e8e8e; font-size: 12px; margin-bottom: 4px;">Статус</div>
+                                <div style="color: #f59e0b; font-size: 14px; font-weight: 600;">Обработка в фоне...</div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }, 15000);
+            
+            try {
+                // Создаем скриншот профиля (не статистики)
+                const screenshotResponse = await fetch(`/api/screenshot/${encodeURIComponent(username)}`, {
+                    method: 'POST'
+                });
+                
+                if (!screenshotResponse.ok) {
+                    throw new Error('Ошибка при создании скриншота профиля');
+                }
+                
+                const screenshotResult = await screenshotResponse.json();
+                
+                if (screenshotResult.success && screenshotResult.data) {
+                    clearTimeout(timeoutId);
+                    
+                    // Сохраняем данные профиля
+                    currentProfileData = screenshotResult.data;
+                    
+                    // Показываем результаты
+                    resultsDiv.innerHTML = `
+                        <div style="background: #1a1a1a; border: 1px solid #0095f6; border-radius: 8px; padding: 20px; text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+                            <h3 style="color: #ffffff; margin-bottom: 8px; font-size: 18px;">Анализ завершен</h3>
+                            <p style="color: #a8a8a8; margin-bottom: 16px; line-height: 1.5;">
+                                Профиль @${username} успешно проанализирован.<br>
+                                GPT отчет сгенерирован на основе публичных данных профиля.
+                            </p>
+                            <button class="btn btn-full" onclick="displayUserDataFromResult()" style="background: #0095f6; margin-top: 16px;">
+                                📊 Посмотреть аналитику
+                            </button>
+                            <button class="btn btn-secondary btn-full" onclick="goToUploadPage()" style="margin-top: 8px;">
+                                📸 Добавить скриншот статистики для полного анализа
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('Не удалось получить данные профиля');
+                }
+            } catch (error) {
+                clearTimeout(timeoutId);
+                console.error('Ошибка при анализе профиля:', error);
+                resultsDiv.innerHTML = `
+                    <div class="error">
+                        <div style="font-size: 24px; margin-bottom: 8px;">❌</div>
+                        <div>Ошибка: ${error.message}</div>
+                        <button class="btn btn-secondary btn-full" onclick="goBackToPage1()" style="margin-top: 16px;">
+                            Назад
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        function goToUploadPage() {
             // Показываем username на странице загрузки
-            document.getElementById('displayUsername').textContent = username;
+            document.getElementById('displayUsername').textContent = currentUsername;
             
             // Переходим на страницу загрузки
             showPage('page2');
