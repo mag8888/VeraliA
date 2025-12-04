@@ -1,8 +1,12 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, Float, Text, inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy import text
 import os
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://verali_user:verali_password@postgres:5432/verali_db")
 
@@ -51,8 +55,33 @@ class InstagramProfile(Base):
 
 
 def init_db():
-    """Инициализация базы данных - создание таблиц"""
+    """Инициализация базы данных - создание таблиц и миграция"""
+    # Создаем таблицы, если их нет
     Base.metadata.create_all(bind=engine)
+    
+    # Проверяем и добавляем недостающие колонки
+    inspector = inspect(engine)
+    if inspector.has_table("instagram_profiles"):
+        columns = [col['name'] for col in inspector.get_columns("instagram_profiles")]
+        
+        # Список колонок, которые нужно добавить
+        new_columns = {
+            'views': Integer,
+            'interactions': Integer,
+            'new_followers': Integer,
+            'messages': Integer,
+            'shares': Integer
+        }
+        
+        # Добавляем недостающие колонки
+        with engine.connect() as conn:
+            for col_name, col_type in new_columns.items():
+                if col_name not in columns:
+                    logger.info(f"Добавление колонки {col_name} в таблицу instagram_profiles")
+                    if col_type == Integer:
+                        conn.execute(text(f"ALTER TABLE instagram_profiles ADD COLUMN {col_name} INTEGER DEFAULT 0"))
+                    conn.commit()
+                    logger.info(f"Колонка {col_name} успешно добавлена")
 
 
 def get_db():
