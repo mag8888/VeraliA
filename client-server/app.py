@@ -584,10 +584,24 @@ async def upload_screenshot_from_miniapp(
                 else:
                     error_text = await response.text()
                     logger.error(f"Ошибка парсинга: {error_text}")
+                    
+                    # Пытаемся распарсить JSON ошибки
+                    try:
+                        error_json = await response.json()
+                        error_message = error_json.get('message', error_json.get('detail', error_text))
+                    except:
+                        error_message = error_text
+                    
                     return JSONResponse(
-                        {"success": False, "error": f"Ошибка обработки: {error_text}"},
+                        {"success": False, "error": f"Ошибка обработки: {error_message}"},
                         status_code=response.status
                     )
+            except aiohttp.ClientError as e:
+                logger.error(f"Ошибка соединения с parsing server: {e}")
+                return JSONResponse(
+                    {"success": False, "error": f"Parsing Server недоступен. Проверьте, что сервис запущен и доступен по адресу: {PARSING_SERVER_URL}"},
+                    status_code=502
+                )
     
     except Exception as e:
         logger.error(f"Ошибка загрузки скриншота: {e}")
