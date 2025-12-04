@@ -1194,6 +1194,39 @@
             return num.toString();
         }
         
+        async function clearAllData() {
+            if (!confirm('Вы уверены, что хотите удалить все сохраненные профили? Это действие нельзя отменить.')) {
+                return;
+            }
+            
+            try {
+                // Очищаем localStorage
+                localStorage.removeItem('savedProfiles');
+                
+                // Удаляем все профили с сервера
+                const response = await fetch('/api/delete-all-profiles', {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    alert(`✅ Удалено: ${result.deleted_count || 0} профилей`);
+                    
+                    // Обновляем список профилей
+                    loadProfilesList();
+                } else {
+                    // Если endpoint не доступен, просто очищаем localStorage
+                    alert('✅ Локальные данные очищены');
+                    loadProfilesList();
+                }
+            } catch (error) {
+                console.error('Ошибка при очистке данных:', error);
+                // Очищаем только localStorage если сервер недоступен
+                alert('✅ Локальные данные очищены');
+                loadProfilesList();
+            }
+        }
+        
         let currentProfileData = null;
         
         async function saveProfile() {
