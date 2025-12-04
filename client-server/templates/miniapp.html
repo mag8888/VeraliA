@@ -698,7 +698,28 @@
         
         function displayUserDataFromResult() {
             if (currentProfileData) {
-                displayUserData(currentProfileData);
+                // Если есть данные, переходим к аналитике
+                if (currentProfileData.report && (currentProfileData.report.ru || currentProfileData.report.en)) {
+                    // Есть GPT отчет - показываем аналитику
+                    const analyticsData = {
+                        ...currentProfileData,
+                        data: currentProfileData,
+                        report: currentProfileData.report,
+                        report_generated_at: currentProfileData.report_generated_at
+                    };
+                    showPage('page6');
+                    displayAnalytics(analyticsData);
+                } else {
+                    // Нет отчета - загружаем данные с сервера
+                    loadReport();
+                }
+            } else {
+                // Нет данных - загружаем с сервера
+                if (currentUsername) {
+                    loadReport();
+                } else {
+                    alert('Ошибка: данные профиля не найдены');
+                }
             }
         }
         
