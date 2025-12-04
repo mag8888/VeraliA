@@ -845,11 +845,21 @@
                 try {
                     const response = await fetch('/api/users');
                     if (response.ok) {
-                        const serverProfiles = await response.json();
-                        // Объединяем с локальными
+                        const serverData = await response.json();
+                        const serverProfiles = serverData.users || serverData || [];
+                        // Объединяем с локальными, обновляя существующие
                         const serverUsernames = new Set(savedProfiles.map(p => p.username));
                         serverProfiles.forEach(profile => {
-                            if (!serverUsernames.has(profile.username)) {
+                            const existingIndex = savedProfiles.findIndex(p => p.username === profile.username);
+                            if (existingIndex >= 0) {
+                                // Обновляем существующий профиль данными с сервера
+                                savedProfiles[existingIndex] = {
+                                    ...savedProfiles[existingIndex],
+                                    ...profile,
+                                    saved_at: savedProfiles[existingIndex].saved_at || profile.analyzed_at
+                                };
+                            } else {
+                                // Добавляем новый профиль
                                 savedProfiles.push({
                                     ...profile,
                                     saved_at: profile.analyzed_at
@@ -878,14 +888,14 @@
                 let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
                 savedProfiles.forEach(profile => {
                     html += `
-                        <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 16px; cursor: pointer;" onclick="viewProfile('${profile.username}')">
+                        <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 16px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                                 <div style="font-size: 18px; font-weight: 600; color: #ffffff;">${profile.username}</div>
                                 <div style="font-size: 12px; color: #8e8e8e;">
                                     ${new Date(profile.saved_at || profile.analyzed_at).toLocaleDateString('ru-RU')}
                                 </div>
                             </div>
-                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;">
                                 <div style="text-align: center;">
                                     <div style="font-size: 16px; font-weight: 600; color: #ffffff;">${formatNumber(profile.followers || 0)}</div>
                                     <div style="font-size: 10px; color: #8e8e8e;">подписчиков</div>
@@ -899,6 +909,9 @@
                                     <div style="font-size: 10px; color: #8e8e8e;">engagement</div>
                                 </div>
                             </div>
+                            <button class="btn btn-full" onclick="viewProfile('${profile.username}')" style="margin-top: 8px; padding: 10px; font-size: 14px;">
+                                Подробнее
+                            </button>
                         </div>
                     `;
                 });
