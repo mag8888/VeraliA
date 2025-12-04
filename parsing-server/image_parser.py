@@ -135,6 +135,10 @@ class InstagramScreenshotParser:
             r'(подписчик|follower|followers)[:\s]+(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)?',
             r'(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)\s*(followers|подписчик)',
             r'(\d{2,3})\s*(k|тыс|thousand|тысяч)\s*(followers|подписчик)',  # 102K followers
+            r'(\d+)\s*(подписчик|follower|followers)',  # Просто число и слово
+            r'(подписчик|follower|followers)\s*(\d+)',  # Слово и число
+            r'(\d{1,3}[.,]\d+)\s*(тыс|k|thousand|тысяч)',  # 44.9K или 44,9K
+            r'(\d{4,})\s*(подписчик|follower|followers)',  # Большие числа без суффикса (10000+)
         ]
         
         # Также ищем числа в формате "102K" рядом со словом "followers" или "подписчик"
@@ -160,10 +164,13 @@ class InstagramScreenshotParser:
                     else:
                         num = int(num)
                     
-                    if num > 1000:  # Минимум 1K подписчиков
+                    # Убираем ограничение минимума для более точного парсинга
+                    # Но все равно проверяем разумность значения
+                    if num > 0:
                         data['followers'] = max(data['followers'], num)
                         logger.info(f"Найдено подписчиков: {num}")
-                        break
+                        if num > 1000:  # Если нашли большое число, можно прервать поиск
+                            break
                 except Exception as e:
                     logger.debug(f"Ошибка парсинга подписчиков: {e}")
                     continue
