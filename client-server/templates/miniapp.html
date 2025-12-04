@@ -855,9 +855,17 @@
                 
                 const data = await response.json();
                 
-                if (data.report && (data.report.ru || data.report.en)) {
+                // Объединяем данные профиля и отчет
+                const analyticsData = {
+                    ...data,
+                    data: data.data || data,
+                    report: data.report || {},
+                    report_generated_at: data.report_generated_at
+                };
+                
+                if (analyticsData.report && (analyticsData.report.ru || analyticsData.report.en)) {
                     // Отображаем аналитику с графиками
-                    displayAnalytics(data);
+                    displayAnalytics(analyticsData);
                 } else {
                     throw new Error('Отчет еще не сгенерирован. Пожалуйста, подождите или загрузите скриншот еще раз.');
                 }
