@@ -766,14 +766,27 @@
         }
         
         async function loadReport() {
+            console.log('loadReport вызвана, currentUsername:', currentUsername); // Отладка
+            
             if (!currentUsername) {
                 alert('Ошибка: username не найден');
                 return;
             }
             
             // Переходим на страницу аналитики
+            console.log('Переход на page6'); // Отладка
             showPage('page6');
+            
+            // Ждем немного, чтобы страница отобразилась
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
             const analyticsDiv = document.getElementById('analyticsContent');
+            if (!analyticsDiv) {
+                console.error('Элемент analyticsContent не найден!'); // Отладка
+                alert('Ошибка: элемент аналитики не найден');
+                return;
+            }
+            
             analyticsDiv.innerHTML = '<div class="loading">Загрузка аналитики...</div>';
             
             try {
@@ -1668,9 +1681,12 @@
         
         // Функция для просмотра существующего профиля
         async function viewExistingProfile() {
+            console.log('viewExistingProfile вызвана, existingProfileUsername:', existingProfileUsername); // Отладка
+            
             if (!existingProfileUsername) {
                 const input = document.getElementById('usernameInput').value.trim();
                 existingProfileUsername = extractUsername(input);
+                console.log('Извлечен username из input:', existingProfileUsername); // Отладка
             }
             
             if (!existingProfileUsername) {
@@ -1679,7 +1695,8 @@
             }
             
             currentUsername = existingProfileUsername;
-            loadReport();
+            console.log('Установлен currentUsername:', currentUsername); // Отладка
+            await loadReport();
         }
         
         // При загрузке страницы проверяем наличие сохраненных профилей
