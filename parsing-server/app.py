@@ -483,6 +483,87 @@ async def get_all_users(db: Session = Depends(get_db)):
     }
 
 
+@app.post("/api/data/{username}/regenerate-report")
+async def regenerate_gpt_report(username: str, db: Session = Depends(get_db)):
+    """
+    Принудительно регенерирует GPT отчет для профиля
+    
+    Args:
+        username: Username Instagram пользователя
+        
+    Returns:
+        dict: Обновленные данные профиля с новым отчетом
+    """
+    profile = db.query(InstagramProfile).filter(
+        InstagramProfile.username == username
+    ).first()
+    
+    if not profile:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    profile_dict = {
+        "username": profile.username,
+        "followers": profile.followers,
+        "following": profile.following,
+        "posts_count": profile.posts_count,
+        "bio": profile.bio,
+        "engagement_rate": profile.engagement_rate,
+        "analyzed_at": profile.analyzed_at.isoformat() if profile.analyzed_at else None,
+        "created_at": profile.created_at.isoformat() if profile.created_at else None,
+        "updated_at": profile.updated_at.isoformat() if profile.updated_at else None
+    }
+    
+    screenshot_data = {
+        "views": profile.views,
+        "interactions": profile.interactions,
+        "new_followers": profile.new_followers,
+        "messages": profile.messages,
+        "shares": profile.shares
+    }
+    
+    # Генерируем новый отчет через GPT
+    try:
+        analyzer = get_gpt_analyzer()
+        if analyzer and analyzer.client:
+            try:
+                gpt_reports = analyzer.generate_report(profile_dict, screenshot_data)
+                logger.info(f"GPT отчет регенерирован для {username}")
+            except Exception as e:
+                logger.error(f"Ошибка генерации GPT отчета: {e}")
+                raise HTTPException(status_code=500, detail=f"Ошибка генерации отчета: {str(e)}")
+        else:
+            raise HTTPException(status_code=503, detail="GPT анализатор недоступен. Проверьте OPENAI_API_KEY.")
+        
+        if gpt_reports.get("ru") or gpt_reports.get("en"):
+            # Сохраняем новый отчет в базу
+            profile.report_ru = gpt_reports.get("ru")
+            profile.report_en = gpt_reports.get("en")
+            profile.report_generated_at = datetime.utcnow()
+            db.commit()
+            db.refresh(profile)
+            
+            profile_dict["report"] = {
+                "ru": gpt_reports.get("ru") or "",
+                "en": gpt_reports.get("en") or ""
+            }
+            profile_dict["report_generated_at"] = profile.report_generated_at.isoformat()
+            profile_dict["screenshot_data"] = screenshot_data
+            
+            return {
+                "status": "success",
+                "message": "GPT отчет успешно регенерирован",
+                "data": profile_dict
+            }
+        else:
+            raise HTTPException(status_code=500, detail="GPT отчет не был сгенерирован")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при регенерации отчета: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка: {str(e)}")
+
+
 @app.delete("/api/data/{username}")
 async def delete_user_data(username: str, db: Session = Depends(get_db)):
     """
