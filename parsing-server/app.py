@@ -501,12 +501,16 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
     Returns:
         dict: Данные пользователя
     """
-    profile = db.query(InstagramProfile).filter(
-        InstagramProfile.username == username
-    ).first()
-    
-    if not profile:
-        raise HTTPException(status_code=404, detail="User not found")
+    try:
+        profile = db.query(InstagramProfile).filter(
+            InstagramProfile.username == username
+        ).first()
+        
+        if not profile:
+            raise HTTPException(status_code=404, detail="User not found")
+    except Exception as e:
+        logger.error(f"Ошибка при получении профиля {username}: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении данных: {str(e)}")
     
     profile_dict = {
         "username": profile.username,
@@ -575,7 +579,11 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
             logger.error(f"Ошибка генерации отчета: {e}")
             profile_dict["report"] = {"ru": "", "en": ""}
     
-    return profile_dict
+    try:
+        return profile_dict
+    except Exception as e:
+        logger.error(f"Ошибка при возврате данных профиля {username}: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка при формировании ответа: {str(e)}")
 
 
 @app.get("/api/users")
