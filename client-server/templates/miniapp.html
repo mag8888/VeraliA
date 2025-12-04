@@ -1682,16 +1682,21 @@
                     if (response.ok) {
                         const data = await response.json();
                         console.log('Данные профиля получены:', data); // Отладка
-                        // Проверяем, есть ли отчет GPT
-                        if (data.report && (data.report.ru || data.report.en)) {
-                            existingProfileUsername = username;
-                            document.getElementById('profileExistsMessage').style.display = 'block';
-                            console.log('Профиль найден, показываем кнопку'); // Отладка
-                        } else {
-                            existingProfileUsername = '';
-                            document.getElementById('profileExistsMessage').style.display = 'none';
-                            console.log('Профиль найден, но нет GPT отчета'); // Отладка
+                    // Проверяем, есть ли отчет GPT
+                    if (data.report && (data.report.ru || data.report.en)) {
+                        existingProfileUsername = username;
+                        // Сохраняем username в data-атрибут кнопки для надежности
+                        const viewBtn = document.getElementById('viewExistingProfileBtn');
+                        if (viewBtn) {
+                            viewBtn.setAttribute('data-username', username);
                         }
+                        document.getElementById('profileExistsMessage').style.display = 'block';
+                        console.log('Профиль найден, показываем кнопку, username:', username); // Отладка
+                    } else {
+                        existingProfileUsername = '';
+                        document.getElementById('profileExistsMessage').style.display = 'none';
+                        console.log('Профиль найден, но нет GPT отчета'); // Отладка
+                    }
                     } else {
                         existingProfileUsername = '';
                         document.getElementById('profileExistsMessage').style.display = 'none';
@@ -1716,9 +1721,21 @@
         async function viewExistingProfile() {
             console.log('viewExistingProfile вызвана, existingProfileUsername:', existingProfileUsername); // Отладка
             
-            // Используем existingProfileUsername, если он установлен, иначе пытаемся извлечь из input
-            let username = existingProfileUsername;
+            // Сначала пытаемся получить username из data-атрибута кнопки
+            let username = null;
+            const viewBtn = document.getElementById('viewExistingProfileBtn');
+            if (viewBtn && viewBtn.getAttribute('data-username')) {
+                username = viewBtn.getAttribute('data-username');
+                console.log('Username из data-атрибута кнопки:', username); // Отладка
+            }
             
+            // Если нет, используем existingProfileUsername
+            if (!username && existingProfileUsername) {
+                username = existingProfileUsername;
+                console.log('Username из existingProfileUsername:', username); // Отладка
+            }
+            
+            // Если все еще нет, пытаемся извлечь из input
             if (!username) {
                 const input = document.getElementById('usernameInput');
                 if (input && input.value) {
