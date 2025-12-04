@@ -1001,8 +1001,16 @@
                 toggleBtn.textContent = '📖 Показать расширенную информацию';
                 isFullReportVisible = false;
             } else {
+                // Извлекаем все секции кроме первой
+                const sections = fullReportText.split(/(?=^\d+\.\s)/m);
+                const remainingSections = sections.length > 1 ? sections.slice(1).join('\n\n').trim() : '';
+                
                 fullReportDiv.style.display = 'block';
-                formatAndDisplayReport(fullReportText, 'fullReportContent');
+                if (remainingSections) {
+                    formatAndDisplayReport(remainingSections, 'fullReportContent');
+                } else {
+                    formatAndDisplayReport(fullReportText, 'fullReportContent');
+                }
                 toggleBtn.textContent = '📕 Скрыть расширенную информацию';
                 isFullReportVisible = true;
             }
