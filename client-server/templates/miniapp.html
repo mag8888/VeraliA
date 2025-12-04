@@ -558,7 +558,34 @@
             // Показываем индикатор загрузки
             showPage('page3');
             const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = '<div class="loading">Загрузка скриншота</div>';
+            resultsDiv.innerHTML = '<div class="loading">Загрузка скриншота...</div>';
+            
+            let warningShown = false;
+            let timeoutId = null;
+            
+            // Устанавливаем таймер на 30 секунд для показа предупреждения
+            timeoutId = setTimeout(() => {
+                if (!warningShown) {
+                    warningShown = true;
+                    resultsDiv.innerHTML = `
+                        <div style="background: #1a1a1a; border: 1px solid #f59e0b; border-radius: 8px; padding: 20px; text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 12px;">⏱</div>
+                            <h3 style="color: #ffffff; margin-bottom: 8px; font-size: 18px;">Анализ занимает больше времени</h3>
+                            <p style="color: #a8a8a8; margin-bottom: 16px; line-height: 1.5;">
+                                Анализ вашего профиля может занять несколько минут.<br>
+                                Вы можете закрыть приложение - мы отправим вам уведомление в Telegram, когда анализ будет завершен.
+                            </p>
+                            <div style="margin-top: 20px; padding: 12px; background: #262626; border-radius: 6px;">
+                                <div style="color: #8e8e8e; font-size: 12px; margin-bottom: 4px;">Статус</div>
+                                <div style="color: #f59e0b; font-size: 14px; font-weight: 600;">Обработка в фоне...</div>
+                            </div>
+                            <button class="btn btn-secondary btn-full" onclick="goToProfilesList()" style="margin-top: 16px;">
+                                Вернуться к списку профилей
+                            </button>
+                        </div>
+                    `;
+                }
+            }, 30000); // 30 секунд
             
             try {
                 // Создаем FormData для отправки файла
@@ -582,11 +609,42 @@
                 });
                 
                 if (!response.ok) {
+                    clearTimeout(timeoutId);
                     const errorData = await response.json();
                     throw new Error(errorData.error || 'Ошибка загрузки');
                 }
                 
                 const result = await response.json();
+                
+                // Очищаем таймер, если ответ получен быстро
+                clearTimeout(timeoutId);
+                
+                // Если обработка в фоне, показываем соответствующее сообщение
+                if (result.processing) {
+                    if (!warningShown) {
+                        resultsDiv.innerHTML = `
+                            <div style="background: #1a1a1a; border: 1px solid #0095f6; border-radius: 8px; padding: 20px; text-align: center;">
+                                <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+                                <h3 style="color: #ffffff; margin-bottom: 8px; font-size: 18px;">Скриншот принят в обработку</h3>
+                                <p style="color: #a8a8a8; margin-bottom: 16px; line-height: 1.5;">
+                                    Ваш скриншот успешно загружен и отправлен на анализ.<br>
+                                    Анализ может занять несколько минут, особенно при использовании GPT.
+                                </p>
+                                <div style="margin-top: 20px; padding: 12px; background: #262626; border-radius: 6px;">
+                                    <div style="color: #8e8e8e; font-size: 12px; margin-bottom: 4px;">Статус</div>
+                                    <div style="color: #0095f6; font-size: 14px; font-weight: 600;">Обработка в фоне...</div>
+                                </div>
+                                <p style="color: #8e8e8e; font-size: 12px; margin-top: 16px;">
+                                    Вы можете закрыть приложение - мы отправим вам уведомление в Telegram, когда анализ будет завершен.
+                                </p>
+                                <button class="btn btn-secondary btn-full" onclick="goToProfilesList()" style="margin-top: 16px;">
+                                    Вернуться к списку профилей
+                                </button>
+                            </div>
+                        `;
+                    }
+                    return; // Не продолжаем обработку, так как анализ идет в фоне
+                }
                 
                 // Сохраняем данные профиля для последующего сохранения
                 if (result.data && result.data.data) {
