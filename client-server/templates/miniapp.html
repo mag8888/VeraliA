@@ -398,6 +398,10 @@
             const linkOnlyRadio = document.getElementById('analysisTypeLinkOnly');
             const fullRadio = document.getElementById('analysisTypeFull');
             
+            if (!linkOnlyLabel || !fullLabel || !linkOnlyRadio || !fullRadio) {
+                return; // Элементы не найдены, выходим
+            }
+            
             if (type === 'link-only') {
                 linkOnlyLabel.style.border = '2px solid #0095f6';
                 fullLabel.style.border = '2px solid transparent';
