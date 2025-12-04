@@ -12,8 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копирование всего содержимого client-server
 COPY client-server/ ./
 
-# Создание директории для загрузок
-RUN mkdir -p uploads
+# Создание директорий для загрузок и примеров
+RUN mkdir -p uploads examples
 
 # Railway автоматически предоставляет PORT через переменную окружения
 EXPOSE 8000

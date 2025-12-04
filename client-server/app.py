@@ -32,6 +32,12 @@ PARSING_SERVER_URL = os.getenv("PARSING_SERVER_URL", f"http://localhost:8001")
 # URL мини-приложения (должен быть HTTPS для Telegram WebApp)
 MINIAPP_URL = os.getenv("MINIAPP_URL", f"http://localhost:{PORT}/miniapp")
 
+# Настройка хранилища
+UPLOADS_DIR = "uploads"
+EXAMPLES_DIR = "examples"
+os.makedirs(UPLOADS_DIR, exist_ok=True)
+os.makedirs(EXAMPLES_DIR, exist_ok=True)
+
 # Инициализация Telegram бота
 telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
 
@@ -81,7 +87,41 @@ async def analyze_instagram_callback(update: Update, context: ContextTypes.DEFAU
         "📸 Для анализа Instagram профиля:\n\n"
         "1. Отправьте username пользователя (например: @username или username)\n"
         "2. Отправьте скриншот статистики профиля\n\n"
-        "Пример скриншота будет показан после отправки username."
+        "Сейчас покажу примеры скриншотов..."
+    )
+    
+    # Отправляем примеры скриншотов
+    examples_dir = "examples"
+    if os.path.exists(examples_dir):
+        example_files = [f for f in os.listdir(examples_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+        if example_files:
+            # Отправляем первый пример
+            example_path = os.path.join(examples_dir, example_files[0])
+            if os.path.exists(example_path):
+                try:
+                    with open(example_path, 'rb') as photo:
+                        await query.message.reply_photo(
+                            photo=photo,
+                            caption="📸 Пример скриншота 1:\nСкриншот профиля Instagram с основной статистикой"
+                        )
+                except Exception as e:
+                    logger.error(f"Error sending example 1: {e}")
+            
+            # Отправляем второй пример, если есть
+            if len(example_files) > 1:
+                example_path = os.path.join(examples_dir, example_files[1])
+                if os.path.exists(example_path):
+                    try:
+                        with open(example_path, 'rb') as photo:
+                            await query.message.reply_photo(
+                                photo=photo,
+                                caption="📸 Пример скриншота 2:\nСкриншот профессиональной панели Instagram"
+                            )
+                    except Exception as e:
+                        logger.error(f"Error sending example 2: {e}")
+    
+    await query.message.reply_text(
+        "✅ Теперь отправьте username пользователя, а затем скриншот его статистики."
     )
 
 
@@ -120,9 +160,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file = await telegram_app.bot.get_file(photo.file_id)
     
     # Скачиваем файл
-    uploads_dir = "uploads"
-    os.makedirs(uploads_dir, exist_ok=True)
-    file_path = os.path.join(uploads_dir, f"{photo.file_id}.jpg")
+    file_path = os.path.join(UPLOADS_DIR, f"{username}_{photo.file_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg")
     await file.download_to_drive(file_path)
     
     # Отправляем запрос на сервер парсинга
