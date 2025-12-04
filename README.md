@@ -54,10 +54,19 @@ VeraliA/
 │   ├── requirements.txt   # Зависимости
 │   └── Dockerfile         # Docker образ
 ├── docker-compose.yml     # Оркестрация сервисов
-└── README.md              # Документация
+├── README.md              # Документация
+├── RAILWAY_DEPLOY.md      # Инструкция по деплою на Railway
+├── RAILWAY_QUICKSTART.md  # Быстрый старт Railway
+└── DATA_FORMAT.md         # Формат данных
 ```
 
-## Установка и запуск
+## Деплой на Railway
+
+Для быстрого деплоя на Railway см. [RAILWAY_QUICKSTART.md](./RAILWAY_QUICKSTART.md)
+
+Полная инструкция: [RAILWAY_DEPLOY.md](./RAILWAY_DEPLOY.md)
+
+## Установка и запуск (локально)
 
 ### Предварительные требования
 

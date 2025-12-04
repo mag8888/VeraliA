@@ -24,8 +24,10 @@ templates = Jinja2Templates(directory="templates")
 
 # Конфигурация
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-PARSING_SERVER_URL = os.getenv("PARSING_SERVER_URL", "http://parsing-server:8001")
-MINIAPP_URL = os.getenv("MINIAPP_URL", "http://localhost:8000/miniapp")
+# URL для связи с parsing server (Railway или локальный)
+PARSING_SERVER_URL = os.getenv("PARSING_SERVER_URL", f"http://localhost:8001")
+# URL мини-приложения (должен быть HTTPS для Telegram WebApp)
+MINIAPP_URL = os.getenv("MINIAPP_URL", f"http://localhost:{PORT}/miniapp")
 PORT = int(os.getenv("PORT", 8000))
 
 # Инициализация Telegram бота

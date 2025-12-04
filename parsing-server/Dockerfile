@@ -16,6 +16,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# Создание директории для загрузок
+RUN mkdir -p uploads
+
+# Railway автоматически предоставляет PORT через переменную окружения
 EXPOSE 8001
 
 CMD ["python", "app.py"]
