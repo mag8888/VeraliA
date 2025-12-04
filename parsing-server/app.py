@@ -243,25 +243,65 @@ async def analyze_link_only(username: str, db: Session = Depends(get_db)):
             InstagramProfile.username == username
         ).first()
         
+        # Проверяем, нужно ли обновить данные профиля
+        # Если профиль новый или данные пустые, получаем их через скриншот главной страницы
+        need_update = False
         if not profile:
-            # Создаем минимальный профиль (только username)
-            # Данные будут заполнены позже при загрузке скриншота
-            profile = InstagramProfile(
-                username=username,
-                followers=0,
-                following=0,
-                posts_count=0,
-                bio=None,
-                engagement_rate=None
-            )
-            db.add(profile)
-            db.commit()
-            db.refresh(profile)
-            logger.info(f"Создан новый профиль {username} для анализа только по ссылке")
+            need_update = True
+            logger.info(f"Профиль {username} не найден, создаем новый и получаем данные")
+        elif profile.followers == 0 and profile.posts_count == 0 and not profile.bio:
+            need_update = True
+            logger.info(f"Профиль {username} существует, но данные пустые, обновляем")
         
-        # НЕ обновляем данные из скриншота при запросе данных - это может занять много времени
-        # Обновление данных должно происходить только при явном анализе профиля
-        # Используем существующие данные из базы
+        if need_update:
+            try:
+                # Создаем скриншот главной страницы профиля для получения публичных данных
+                logger.info(f"Создание скриншота главной страницы для {username}")
+                screenshot_path = await screenshot_service.take_profile_screenshot(username)
+                
+                # Парсим скриншот для получения публичных данных
+                parsed_data = parser.parse_screenshot(screenshot_path)
+                
+                if not profile:
+                    # Создаем новый профиль с данными
+                    profile = InstagramProfile(
+                        username=username,
+                        followers=parsed_data.get('followers', 0),
+                        following=parsed_data.get('following', 0),
+                        posts_count=parsed_data.get('posts_count', 0),
+                        bio=parsed_data.get('bio'),
+                        engagement_rate=parsed_data.get('engagement_rate'),
+                        screenshot_path=screenshot_path
+                    )
+                    db.add(profile)
+                else:
+                    # Обновляем существующий профиль
+                    profile.followers = parsed_data.get('followers', 0)
+                    profile.following = parsed_data.get('following', 0)
+                    profile.posts_count = parsed_data.get('posts_count', 0)
+                    profile.bio = parsed_data.get('bio')
+                    profile.engagement_rate = parsed_data.get('engagement_rate')
+                    profile.screenshot_path = screenshot_path
+                    profile.updated_at = datetime.utcnow()
+                
+                db.commit()
+                db.refresh(profile)
+                logger.info(f"Данные профиля {username} обновлены: {profile.followers} подписчиков, {profile.posts_count} постов")
+            except Exception as e:
+                logger.warning(f"Не удалось получить данные профиля через скриншот: {e}")
+                # Если не удалось получить данные, создаем профиль с нулевыми данными
+                if not profile:
+                    profile = InstagramProfile(
+                        username=username,
+                        followers=0,
+                        following=0,
+                        posts_count=0,
+                        bio=None,
+                        engagement_rate=None
+                    )
+                    db.add(profile)
+                    db.commit()
+                    db.refresh(profile)
         
         # Используем актуальные данные профиля
         profile_dict = {
