@@ -225,6 +225,104 @@ async def analyze_instagram(
         raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера: {str(e)}")
 
 
+@app.post("/api/analyze-link-only/{username}")
+async def analyze_link_only(username: str, db: Session = Depends(get_db)):
+    """
+    Анализирует профиль только по ссылке (без скриншота статистики)
+    Создает или обновляет профиль и генерирует GPT отчет на основе публичных данных
+    
+    Args:
+        username: Username Instagram пользователя
+        
+    Returns:
+        dict: Данные профиля с GPT отчетом
+    """
+    try:
+        # Проверяем, есть ли профиль в базе
+        profile = db.query(InstagramProfile).filter(
+            InstagramProfile.username == username
+        ).first()
+        
+        if not profile:
+            # Создаем минимальный профиль (только username)
+            # Данные будут заполнены позже при загрузке скриншота
+            profile = InstagramProfile(
+                username=username,
+                followers=0,
+                following=0,
+                posts_count=0,
+                bio=None,
+                engagement_rate=None
+            )
+            db.add(profile)
+            db.commit()
+            db.refresh(profile)
+            logger.info(f"Создан новый профиль {username} для анализа только по ссылке")
+        
+        # Пытаемся получить данные профиля из Instagram (если есть скриншот)
+        # Если нет - используем существующие данные или минимальные
+        profile_dict = {
+            "username": profile.username,
+            "followers": profile.followers,
+            "following": profile.following,
+            "posts_count": profile.posts_count,
+            "bio": profile.bio,
+            "engagement_rate": profile.engagement_rate
+        }
+        
+        screenshot_data = {
+            "views": profile.views,
+            "interactions": profile.interactions,
+            "new_followers": profile.new_followers,
+            "messages": profile.messages,
+            "shares": profile.shares
+        }
+        
+        # Генерируем GPT отчет на основе доступных данных
+        analyzer = get_gpt_analyzer()
+        if analyzer and analyzer.client:
+            try:
+                logger.info(f"Генерация GPT отчета для {username} (анализ только по ссылке)")
+                gpt_reports = analyzer.generate_report(profile_dict, screenshot_data)
+            except Exception as e:
+                logger.error(f"Ошибка генерации GPT отчета: {e}")
+                raise HTTPException(status_code=500, detail=f"Ошибка генерации отчета: {str(e)}")
+        else:
+            raise HTTPException(status_code=503, detail="GPT анализатор недоступен. Проверьте OPENAI_API_KEY.")
+        
+        if gpt_reports.get("ru") or gpt_reports.get("en"):
+            # Сохраняем GPT отчет в базу
+            profile.report_ru = gpt_reports.get("ru")
+            profile.report_en = gpt_reports.get("en")
+            profile.report_generated_at = datetime.utcnow()
+            profile.analyzed_at = datetime.utcnow()
+            db.commit()
+            db.refresh(profile)
+            
+            profile_dict["report"] = {
+                "ru": gpt_reports.get("ru") or "",
+                "en": gpt_reports.get("en") or ""
+            }
+            profile_dict["report_generated_at"] = profile.report_generated_at.isoformat()
+            profile_dict["analyzed_at"] = profile.analyzed_at.isoformat()
+            profile_dict["screenshot_data"] = screenshot_data
+            
+            return {
+                "success": True,
+                "message": "Профиль проанализирован (только по ссылке)",
+                "data": profile_dict
+            }
+        else:
+            raise HTTPException(status_code=500, detail="GPT отчет не был сгенерирован")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Ошибка при анализе профиля только по ссылке: {e}")
+        raise HTTPException(status_code=500, detail=f"Ошибка: {str(e)}")
+
+
 @app.post("/api/screenshot/{username}")
 async def create_screenshot(username: str, db: Session = Depends(get_db)):
     """

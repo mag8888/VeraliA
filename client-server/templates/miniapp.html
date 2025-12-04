@@ -471,22 +471,23 @@
             }, 15000);
             
             try {
-                // Создаем скриншот профиля (не статистики)
-                const screenshotResponse = await fetch(`/api/screenshot/${encodeURIComponent(username)}`, {
+                // Анализируем профиль только по ссылке (без скриншота)
+                const analyzeResponse = await fetch(`/api/analyze-link-only/${encodeURIComponent(username)}`, {
                     method: 'POST'
                 });
                 
-                if (!screenshotResponse.ok) {
-                    throw new Error('Ошибка при создании скриншота профиля');
+                if (!analyzeResponse.ok) {
+                    const errorData = await analyzeResponse.json().catch(() => ({}));
+                    throw new Error(errorData.detail || 'Ошибка при анализе профиля');
                 }
                 
-                const screenshotResult = await screenshotResponse.json();
+                const analyzeResult = await analyzeResponse.json();
                 
-                if (screenshotResult.success && screenshotResult.data) {
+                if (analyzeResult.success && analyzeResult.data) {
                     clearTimeout(timeoutId);
                     
                     // Сохраняем данные профиля
-                    currentProfileData = screenshotResult.data;
+                    currentProfileData = analyzeResult.data;
                     
                     // Показываем результаты
                     resultsDiv.innerHTML = `
