@@ -475,11 +475,15 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
     """
     try:
         logger.info(f"Запрос данных для профиля: {username}")
-        profile = db.query(InstagramProfile).filter(
-            InstagramProfile.username == username
-        ).first()
         
-        logger.info(f"Профиль найден: {profile is not None}")
+        try:
+            profile = db.query(InstagramProfile).filter(
+                InstagramProfile.username == username
+            ).first()
+            logger.info(f"Профиль найден: {profile is not None}")
+        except Exception as db_error:
+            logger.error(f"Ошибка при запросе к базе данных: {db_error}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Ошибка базы данных: {str(db_error)}")
         
         if not profile:
             logger.warning(f"Профиль {username} не найден в базе данных")
