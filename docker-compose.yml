@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # База данных PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: verali_postgres
+    environment:
+      POSTGRES_DB: verali_db
+      POSTGRES_USER: verali_user
+      POSTGRES_PASSWORD: verali_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - verali_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U verali_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Клиентский сервер (Telegram бот + мини-приложение)
+  client-server:
+    build:
+      context: ./client-server
+      dockerfile: Dockerfile
+    container_name: verali_client
+    environment:
+      - DATABASE_URL=postgresql://verali_user:verali_password@postgres:5432/verali_db
+      - PARSING_SERVER_URL=http://parsing-server:8001
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - MINIAPP_URL=${MINIAPP_URL:-http://localhost:8000/miniapp}
+      - PORT=8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      parsing-server:
+        condition: service_started
+    networks:
+      - verali_network
+    volumes:
+      - ./client-server:/app
+    command: python app.py
+
+  # Сервер парсинга Instagram
+  parsing-server:
+    build:
+      context: ./parsing-server
+      dockerfile: Dockerfile
+    container_name: verali_parsing
+    environment:
+      - DATABASE_URL=postgresql://verali_user:verali_password@postgres:5432/verali_db
+      - PORT=8001
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - verali_network
+    volumes:
+      - ./parsing-server:/app
+      - ./uploads:/app/uploads
+    command: python app.py
+
+volumes:
+  postgres_data:
+
+networks:
+  verali_network:
+    driver: bridge
+
