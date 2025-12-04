@@ -247,6 +247,12 @@
                 
                 <div class="search-box">
                     <input type="text" id="usernameInput" placeholder="Введите username или URL Instagram" />
+                    <div id="profileExistsMessage" style="display: none; margin-top: 12px; padding: 12px; background: #1a1a1a; border: 1px solid #0095f6; border-radius: 8px;">
+                        <div style="color: #0095f6; font-size: 14px; margin-bottom: 8px;">✅ Профиль уже анализирован</div>
+                        <button class="btn btn-full" id="viewExistingProfileBtn" onclick="viewExistingProfile()" style="background: #0095f6; margin-top: 8px;">
+                            📊 Посмотреть профиль
+                        </button>
+                    </div>
                     <div class="button-group">
                         <button class="btn btn-full" onclick="goToUploadPage()">Далее</button>
                     </div>
@@ -389,6 +395,9 @@
         }
         
         function goBackToPage1() {
+            // Сбрасываем сообщение о существующем профиле
+            document.getElementById('profileExistsMessage').style.display = 'none';
+            existingProfileUsername = '';
             showPage('page1');
         }
         
@@ -1531,12 +1540,65 @@
             loadReport();
         }
         
+        let existingProfileUsername = '';
+        
+        // Проверка существования профиля при вводе
+        document.getElementById('usernameInput').addEventListener('input', async function(e) {
+            const input = e.target.value.trim();
+            if (!input) {
+                document.getElementById('profileExistsMessage').style.display = 'none';
+                existingProfileUsername = '';
+                return;
+            }
+            
+            const username = extractUsername(input);
+            if (!username) return;
+            
+            // Проверяем существование профиля
+            try {
+                const response = await fetch(`/api/data/${encodeURIComponent(username)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    // Проверяем, есть ли отчет GPT
+                    if (data.report && (data.report.ru || data.report.en)) {
+                        existingProfileUsername = username;
+                        document.getElementById('profileExistsMessage').style.display = 'block';
+                    } else {
+                        existingProfileUsername = '';
+                        document.getElementById('profileExistsMessage').style.display = 'none';
+                    }
+                } else {
+                    existingProfileUsername = '';
+                    document.getElementById('profileExistsMessage').style.display = 'none';
+                }
+            } catch (error) {
+                existingProfileUsername = '';
+                document.getElementById('profileExistsMessage').style.display = 'none';
+            }
+        });
+        
         // Автозагрузка при Enter на странице 1
         document.getElementById('usernameInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 goToUploadPage();
             }
         });
+        
+        // Функция для просмотра существующего профиля
+        async function viewExistingProfile() {
+            if (!existingProfileUsername) {
+                const input = document.getElementById('usernameInput').value.trim();
+                existingProfileUsername = extractUsername(input);
+            }
+            
+            if (!existingProfileUsername) {
+                alert('Ошибка: username не найден');
+                return;
+            }
+            
+            currentUsername = existingProfileUsername;
+            loadReport();
+        }
         
         // При загрузке страницы проверяем наличие сохраненных профилей
         window.addEventListener('load', function() {
