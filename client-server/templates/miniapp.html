@@ -1015,9 +1015,28 @@
             createCharts(profileData);
             
             // Форматируем и отображаем первую секцию
-            if (reportText) {
-                const firstSection = extractFirstSection(reportText);
-                formatAndDisplayReport(firstSection, 'firstSectionContent');
+            if (reportText && reportText.trim().length > 0) {
+                console.log('Форматируем отчет, длина:', reportText.length); // Отладка
+                try {
+                    const firstSection = extractFirstSection(reportText);
+                    console.log('Первая секция извлечена, длина:', firstSection.length); // Отладка
+                    if (firstSection && firstSection.trim().length > 0) {
+                        formatAndDisplayReport(firstSection, 'firstSectionContent');
+                    } else {
+                        // Если первая секция пустая, показываем весь отчет
+                        console.log('Первая секция пустая, показываем весь отчет'); // Отладка
+                        formatAndDisplayReport(reportText, 'firstSectionContent');
+                    }
+                } catch (error) {
+                    console.error('Ошибка при форматировании отчета:', error); // Отладка
+                    // Показываем отчет как есть
+                    const firstSectionDiv = document.getElementById('firstSectionContent');
+                    if (firstSectionDiv) {
+                        firstSectionDiv.innerHTML = `<div style="color: #ffffff; white-space: pre-wrap; line-height: 1.8;">${reportText}</div>`;
+                    }
+                }
+            } else {
+                console.warn('Отчет пустой или отсутствует, reportText:', reportText); // Отладка
             }
         }
         
