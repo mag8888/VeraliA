@@ -24,25 +24,31 @@ Railway - это платформа для деплоя приложений, к
 3. Railway автоматически создаст PostgreSQL сервис
 4. Запомните название сервиса (например: `Postgres`)
 
+**Важно:** Для PostgreSQL сервиса **НЕ нужно** указывать Root Directory! Это встроенный сервис базы данных, который использует готовый Docker образ. Root Directory нужен только для сервисов с вашим кодом (Client Server и Parsing Server).
+
 ## Шаг 3: Создание Client Server
 
 1. В проекте нажмите **"+ New"**
 2. Выберите **"GitHub Repo"** → выберите `VeraliA`
-3. В настройках сервиса:
-   - **Root Directory**: `client-server`
-   - **Build Command**: (оставить пустым, используется Dockerfile)
-   - **Start Command**: (оставить пустым, используется Dockerfile)
-
+3. **ВАЖНО!** После создания сервиса:
+   - Перейдите в **Settings** сервиса
+   - Найдите раздел **"Root Directory"**
+   - Установите значение: `client-server` (без слэша в начале!)
+   - Сохраните изменения
 4. Railway автоматически обнаружит `Dockerfile` в `client-server/`
+5. **Build Command** и **Start Command** оставьте пустыми (используется Dockerfile)
 
 ## Шаг 4: Создание Parsing Server
 
 1. В проекте нажмите **"+ New"**
 2. Выберите **"GitHub Repo"** → выберите `VeraliA`
-3. В настройках сервиса:
-   - **Root Directory**: `parsing-server`
-   - **Build Command**: (оставить пустым)
-   - **Start Command**: (оставить пустым)
+3. **ВАЖНО!** После создания сервиса:
+   - Перейдите в **Settings** сервиса
+   - Найдите раздел **"Root Directory"**
+   - Установите значение: `parsing-server` (без слэша в начале!)
+   - Сохраните изменения
+4. Railway автоматически обнаружит `Dockerfile` в `parsing-server/`
+5. **Build Command** и **Start Command** оставьте пустыми (используется Dockerfile)
 
 ## Шаг 5: Настройка переменных окружения
 
@@ -55,10 +61,10 @@ TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 PARSING_SERVER_URL=${{Parsing-Server.RAILWAY_PUBLIC_DOMAIN}}
 MINIAPP_URL=${{Client-Server.RAILWAY_PUBLIC_DOMAIN}}/miniapp
-PORT=8000
 ```
 
 **Важно:**
+- `PORT` - **НЕ нужно указывать!** Railway автоматически устанавливает переменную `PORT` (может быть 8080, 8000 или другой порт, указанный при создании сервиса)
 - `${{Postgres.DATABASE_URL}}` - Railway автоматически подставит URL базы данных
 - `${{Parsing-Server.RAILWAY_PUBLIC_DOMAIN}}` - замените на реальное имя вашего сервиса парсинга
 - `${{Client-Server.RAILWAY_PUBLIC_DOMAIN}}` - замените на реальное имя вашего клиентского сервиса
@@ -69,8 +75,10 @@ PORT=8000
 
 ```env
 DATABASE_URL=${{Postgres.DATABASE_URL}}
-PORT=8001
 ```
+
+**Важно:**
+- `PORT` - **НЕ нужно указывать!** Railway автоматически устанавливает переменную `PORT`
 
 ## Шаг 6: Настройка публичных доменов
 

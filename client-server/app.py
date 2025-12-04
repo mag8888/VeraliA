@@ -24,11 +24,12 @@ templates = Jinja2Templates(directory="templates")
 
 # Конфигурация
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+# Railway автоматически предоставляет PORT через переменную окружения
+PORT = int(os.getenv("PORT", 8000))
 # URL для связи с parsing server (Railway или локальный)
 PARSING_SERVER_URL = os.getenv("PARSING_SERVER_URL", f"http://localhost:8001")
 # URL мини-приложения (должен быть HTTPS для Telegram WebApp)
 MINIAPP_URL = os.getenv("MINIAPP_URL", f"http://localhost:{PORT}/miniapp")
-PORT = int(os.getenv("PORT", 8000))
 
 # Инициализация Telegram бота
 telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
