@@ -1,0 +1,11 @@
+# Railpack конфигурация для автоматического определения проекта
+# Railpack - новый builder от Railway (замена Nixpacks)
+
+[build]
+# Railpack автоматически определит Python проект по requirements.txt
+# и установит зависимости
+
+[start]
+# Команда запуска приложения
+cmd = "python app.py"
+

@@ -1,0 +1,13 @@
+# Railpack конфигурация для Client Server
+# Railpack автоматически определит Python проект
+
+[build]
+# Railpack автоматически:
+# - Определит Python проект (по requirements.txt)
+# - Установит зависимости из requirements.txt
+# - Настроит окружение
+
+[start]
+# Команда запуска приложения
+cmd = "python app.py"
+
