@@ -257,6 +257,11 @@ async def create_screenshot(username: str, db: Session = Depends(get_db)):
                 profile.bio = parsed_data.get('bio')
                 profile.engagement_rate = parsed_data.get('engagement_rate')
                 profile.screenshot_path = screenshot_path
+                profile.views = parsed_data.get('views', 0)
+                profile.interactions = parsed_data.get('interactions', 0)
+                profile.new_followers = parsed_data.get('new_followers', 0)
+                profile.messages = parsed_data.get('messages', 0)
+                profile.shares = parsed_data.get('shares', 0)
                 profile.updated_at = datetime.utcnow()
             else:
                 # Создаем новый профиль
@@ -267,12 +272,46 @@ async def create_screenshot(username: str, db: Session = Depends(get_db)):
                     posts_count=parsed_data.get('posts_count', 0),
                     bio=parsed_data.get('bio'),
                     engagement_rate=parsed_data.get('engagement_rate'),
-                    screenshot_path=screenshot_path
+                    screenshot_path=screenshot_path,
+                    views=parsed_data.get('views', 0),
+                    interactions=parsed_data.get('interactions', 0),
+                    new_followers=parsed_data.get('new_followers', 0),
+                    messages=parsed_data.get('messages', 0),
+                    shares=parsed_data.get('shares', 0)
                 )
                 db.add(profile)
             
             db.commit()
             db.refresh(profile)
+            
+            # Генерируем GPT отчет
+            profile_dict = {
+                "username": profile.username,
+                "followers": profile.followers,
+                "following": profile.following,
+                "posts_count": profile.posts_count,
+                "bio": profile.bio,
+                "engagement_rate": profile.engagement_rate
+            }
+            
+            screenshot_data = {
+                "views": profile.views,
+                "interactions": profile.interactions,
+                "new_followers": profile.new_followers,
+                "messages": profile.messages,
+                "shares": profile.shares
+            }
+            
+            # Генерируем отчет с помощью GPT
+            gpt_reports = gpt_analyzer.generate_report(profile_dict, screenshot_data)
+            
+            # Сохраняем GPT отчеты в базу
+            if gpt_reports.get("ru") or gpt_reports.get("en"):
+                profile.report_ru = gpt_reports.get("ru")
+                profile.report_en = gpt_reports.get("en")
+                profile.report_generated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(profile)
             
             return {
                 "success": True,
@@ -285,7 +324,12 @@ async def create_screenshot(username: str, db: Session = Depends(get_db)):
                     "posts_count": profile.posts_count,
                     "bio": profile.bio,
                     "engagement_rate": profile.engagement_rate,
-                    "analyzed_at": profile.analyzed_at.isoformat() if profile.analyzed_at else None
+                    "analyzed_at": profile.analyzed_at.isoformat() if profile.analyzed_at else None,
+                    "report": {
+                        "ru": gpt_reports.get("ru") or "",
+                        "en": gpt_reports.get("en") or ""
+                    },
+                    "report_generated_at": profile.report_generated_at.isoformat() if profile.report_generated_at else None
                 }
             }
         except IntegrityError as e:
@@ -328,27 +372,61 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
         "updated_at": profile.updated_at.isoformat() if profile.updated_at else None
     }
     
-    # Генерируем отчет если есть данные
-    try:
-        # Пытаемся извлечь дополнительные данные из скриншота если есть
-        screenshot_data = {}
-        if profile.screenshot_path and os.path.exists(profile.screenshot_path):
-            try:
-                parsed_data = parser.parse_screenshot(profile.screenshot_path)
-                screenshot_data = {
-                    "views": parsed_data.get('views', 0),
-                    "interactions": parsed_data.get('interactions', 0),
-                    "new_followers": parsed_data.get('new_followers', 0),
-                    "messages": parsed_data.get('messages', 0),
-                    "shares": parsed_data.get('shares', 0)
+    # Добавляем дополнительные данные из базы
+    screenshot_data = {
+        "views": profile.views,
+        "interactions": profile.interactions,
+        "new_followers": profile.new_followers,
+        "messages": profile.messages,
+        "shares": profile.shares
+    }
+    profile_dict["screenshot_data"] = screenshot_data
+    
+    # Добавляем отчеты из базы (если есть)
+    if profile.report_ru or profile.report_en:
+        profile_dict["report"] = {
+            "ru": profile.report_ru or "",
+            "en": profile.report_en or ""
+        }
+        profile_dict["report_generated_at"] = profile.report_generated_at.isoformat() if profile.report_generated_at else None
+    else:
+        # Генерируем отчет, если его нет в базе
+        try:
+            # Пытаемся сгенерировать через GPT
+            gpt_reports = gpt_analyzer.generate_report(profile_dict, screenshot_data)
+            
+            if gpt_reports.get("ru") or gpt_reports.get("en"):
+                # Сохраняем в базу
+                profile.report_ru = gpt_reports.get("ru")
+                profile.report_en = gpt_reports.get("en")
+                profile.report_generated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(profile)
+                
+                profile_dict["report"] = {
+                    "ru": gpt_reports.get("ru") or "",
+                    "en": gpt_reports.get("en") or ""
                 }
-            except Exception as e:
-                logger.error(f"Ошибка при парсинге скриншота: {e}")
-        
-        report = report_generator.generate_report(profile_dict, screenshot_data)
-        profile_dict["report"] = report
-    except Exception as e:
-        logger.error(f"Ошибка генерации отчета: {e}")
+                profile_dict["report_generated_at"] = profile.report_generated_at.isoformat()
+            else:
+                # Fallback на базовый отчет
+                basic_report = report_generator.generate_report(profile_dict, screenshot_data)
+                profile_dict["report"] = {
+                    "ru": basic_report or "",
+                    "en": ""
+                }
+        except Exception as e:
+            logger.error(f"Ошибка генерации отчета: {e}")
+            # Fallback на базовый отчет
+            try:
+                basic_report = report_generator.generate_report(profile_dict, screenshot_data)
+                profile_dict["report"] = {
+                    "ru": basic_report or "",
+                    "en": ""
+                }
+            except Exception as e2:
+                logger.error(f"Ошибка генерации базового отчета: {e2}")
+                profile_dict["report"] = {"ru": "", "en": ""}
     
     return profile_dict
 
