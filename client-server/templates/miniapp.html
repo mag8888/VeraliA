@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verali - Instagram Analytics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -840,70 +841,335 @@
                 return;
             }
             
-            const resultsDiv = document.getElementById('results');
-            resultsDiv.innerHTML = '<div class="loading">Загрузка отчета</div>';
+            // Переходим на страницу аналитики
+            showPage('page6');
+            const analyticsDiv = document.getElementById('analyticsContent');
+            analyticsDiv.innerHTML = '<div class="loading">Загрузка аналитики...</div>';
             
             try {
-                const response = await fetch(`/api/report/${encodeURIComponent(currentUsername)}`);
+                const response = await fetch(`/api/data/${encodeURIComponent(currentUsername)}`);
                 
                 if (!response.ok) {
-                    throw new Error('Ошибка загрузки отчета');
+                    throw new Error('Ошибка загрузки данных');
                 }
                 
-                const result = await response.json();
+                const data = await response.json();
                 
-                if (result.report) {
-                    // Отображаем отчет с форматированием
-                    displayReport(result.report);
+                if (data.report && (data.report.ru || data.report.en)) {
+                    // Отображаем аналитику с графиками
+                    displayAnalytics(data);
                 } else {
-                    throw new Error('Отчет не найден');
+                    throw new Error('Отчет еще не сгенерирован. Пожалуйста, подождите или загрузите скриншот еще раз.');
                 }
                 
             } catch (error) {
-                resultsDiv.innerHTML = `<div class="error">❌ Ошибка: ${error.message}</div>`;
+                analyticsDiv.innerHTML = `
+                    <div class="error">
+                        <div style="font-size: 24px; margin-bottom: 8px;">❌</div>
+                        <div>Ошибка: ${error.message}</div>
+                        <button class="btn btn-secondary btn-full" onclick="viewProfile('${currentUsername}')" style="margin-top: 16px;">
+                            Назад к профилю
+                        </button>
+                    </div>
+                `;
             }
         }
         
-        function displayReport(reportText) {
-            const resultsDiv = document.getElementById('results');
+        function displayAnalytics(data) {
+            const analyticsDiv = document.getElementById('analyticsContent');
+            const profileData = data.data || data;
+            const report = data.report || {};
+            const reportText = report.ru || report.en || '';
+            
+            let html = '';
+            
+            // Заголовок
+            html += `
+                <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+                    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 8px; color: #ffffff;">📊 Аналитика профиля</h2>
+                    <div style="font-size: 18px; color: #0095f6; margin-bottom: 4px;">@${profileData.username || currentUsername}</div>
+                    ${data.report_generated_at ? `
+                        <div style="font-size: 12px; color: #8e8e8e; margin-top: 8px;">
+                            Отчет создан: ${new Date(data.report_generated_at).toLocaleString('ru-RU')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            // Графики метрик
+            html += `
+                <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #ffffff;">📈 Основные метрики</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                        <div style="background: #262626; border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: 600; color: #0095f6; margin-bottom: 4px;">${formatNumber(profileData.followers || 0)}</div>
+                            <div style="font-size: 12px; color: #8e8e8e;">Подписчики</div>
+                        </div>
+                        <div style="background: #262626; border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: 600; color: #ed4956; margin-bottom: 4px;">${profileData.engagement_rate ? (profileData.engagement_rate * 100).toFixed(1) + '%' : 'N/A'}</div>
+                            <div style="font-size: 12px; color: #8e8e8e;">Engagement Rate</div>
+                        </div>
+                        <div style="background: #262626; border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">${formatNumber(profileData.posts_count || 0)}</div>
+                            <div style="font-size: 12px; color: #8e8e8e;">Публикации</div>
+                        </div>
+                        <div style="background: #262626; border-radius: 8px; padding: 16px; text-align: center;">
+                            <div style="font-size: 24px; font-weight: 600; color: #f59e0b; margin-bottom: 4px;">${formatNumber(profileData.screenshot_data?.interactions || 0)}</div>
+                            <div style="font-size: 12px; color: #8e8e8e;">Взаимодействия</div>
+                        </div>
+                    </div>
+                    
+                    <!-- График Engagement Rate -->
+                    <div style="margin-bottom: 20px;">
+                        <canvas id="engagementChart" style="max-height: 200px;"></canvas>
+                    </div>
+                    
+                    <!-- График роста подписчиков -->
+                    <div style="margin-bottom: 20px;">
+                        <canvas id="growthChart" style="max-height: 200px;"></canvas>
+                    </div>
+                    
+                    <!-- График активности -->
+                    <div>
+                        <canvas id="activityChart" style="max-height: 200px;"></canvas>
+                    </div>
+                </div>
+            `;
+            
+            // GPT отчет
+            if (reportText) {
+                html += `
+                    <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #ffffff;">🤖 GPT Анализ</h3>
+                        <div id="reportContent" style="color: #ffffff; line-height: 1.6; max-height: 60vh; overflow-y: auto;"></div>
+                    </div>
+                `;
+            }
+            
+            analyticsDiv.innerHTML = html;
+            
+            // Создаем графики
+            createCharts(profileData);
+            
+            // Форматируем и отображаем GPT отчет
+            if (reportText) {
+                formatAndDisplayReport(reportText);
+            }
+        }
+        
+        function createCharts(profileData) {
+            const followers = profileData.followers || 0;
+            const following = profileData.following || 0;
+            const posts = profileData.posts_count || 0;
+            const engagementRate = (profileData.engagement_rate || 0) * 100;
+            const views = profileData.screenshot_data?.views || 0;
+            const interactions = profileData.screenshot_data?.interactions || 0;
+            const newFollowers = profileData.screenshot_data?.new_followers || 0;
+            
+            // График Engagement Rate (Doughnut)
+            const engagementCtx = document.getElementById('engagementChart');
+            if (engagementCtx) {
+                new Chart(engagementCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Engagement Rate', 'Остальное'],
+                        datasets: [{
+                            data: [engagementRate, Math.max(0, 100 - engagementRate)],
+                            backgroundColor: [
+                                'rgba(0, 149, 246, 0.8)',
+                                'rgba(38, 38, 38, 0.5)'
+                            ],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'bottom',
+                                labels: {
+                                    color: '#ffffff',
+                                    font: { size: 12 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return context.label + ': ' + context.parsed.toFixed(1) + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // График роста (Bar)
+            const growthCtx = document.getElementById('growthChart');
+            if (growthCtx) {
+                new Chart(growthCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['Подписчики', 'Подписки', 'Публикации'],
+                        datasets: [{
+                            label: 'Количество',
+                            data: [followers, following, posts],
+                            backgroundColor: [
+                                'rgba(0, 149, 246, 0.8)',
+                                'rgba(237, 73, 86, 0.8)',
+                                'rgba(245, 158, 11, 0.8)'
+                            ],
+                            borderRadius: 8
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return formatNumber(context.parsed.y);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    color: '#8e8e8e',
+                                    callback: function(value) {
+                                        return formatNumber(value);
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(38, 38, 38, 0.5)'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: '#8e8e8e'
+                                },
+                                grid: {
+                                    display: false
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // График активности (Line)
+            const activityCtx = document.getElementById('activityChart');
+            if (activityCtx && (views > 0 || interactions > 0 || newFollowers > 0)) {
+                new Chart(activityCtx, {
+                    type: 'line',
+                    data: {
+                        labels: ['Просмотры', 'Взаимодействия', 'Новые подписчики'],
+                        datasets: [{
+                            label: 'Активность за месяц',
+                            data: [views, interactions, newFollowers],
+                            borderColor: 'rgba(0, 149, 246, 1)',
+                            backgroundColor: 'rgba(0, 149, 246, 0.1)',
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 6,
+                            pointBackgroundColor: 'rgba(0, 149, 246, 1)',
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'top',
+                                labels: {
+                                    color: '#ffffff',
+                                    font: { size: 12 }
+                                }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        return formatNumber(context.parsed.y);
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    color: '#8e8e8e',
+                                    callback: function(value) {
+                                        return formatNumber(value);
+                                    }
+                                },
+                                grid: {
+                                    color: 'rgba(38, 38, 38, 0.5)'
+                                }
+                            },
+                            x: {
+                                ticks: {
+                                    color: '#8e8e8e'
+                                },
+                                grid: {
+                                    color: 'rgba(38, 38, 38, 0.5)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        function formatAndDisplayReport(reportText) {
+            const reportDiv = document.getElementById('reportContent');
+            if (!reportDiv) return;
             
             // Разбиваем отчет на секции и форматируем
-            const sections = reportText.split('\n\n');
-            let html = '<div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; max-height: 70vh; overflow-y: auto;">';
+            const sections = reportText.split(/\n\n+/);
+            let html = '';
             
             sections.forEach(section => {
                 if (section.trim()) {
-                    // Форматируем заголовки
                     let formattedSection = section;
                     
                     // Заголовки с эмодзи
-                    formattedSection = formattedSection.replace(/^✅\s+(.+)$/gm, '<h2 style="color: #0095f6; margin-top: 20px; margin-bottom: 12px; font-size: 18px;">✅ $1</h2>');
-                    formattedSection = formattedSection.replace(/^📊\s+(.+)$/gm, '<h3 style="color: #ffffff; margin-top: 16px; margin-bottom: 8px; font-size: 16px;">📊 $1</h3>');
-                    formattedSection = formattedSection.replace(/^🌿\s+(.+)$/gm, '<h3 style="color: #ffffff; margin-top: 16px; margin-bottom: 8px; font-size: 16px;">🌿 $1</h3>');
-                    formattedSection = formattedSection.replace(/^✨\s+(.+)$/gm, '<h3 style="color: #ffffff; margin-top: 16px; margin-bottom: 8px; font-size: 16px;">✨ $1</h3>');
-                    formattedSection = formattedSection.replace(/^🎯\s+(.+)$/gm, '<h4 style="color: #a8a8a8; margin-top: 12px; margin-bottom: 8px; font-size: 14px;">🎯 $1</h4>');
-                    formattedSection = formattedSection.replace(/^👥\s+(.+)$/gm, '<h4 style="color: #a8a8a8; margin-top: 12px; margin-bottom: 8px; font-size: 14px;">👥 $1</h4>');
-                    formattedSection = formattedSection.replace(/^🤝\s+(.+)$/gm, '<h4 style="color: #a8a8a8; margin-top: 12px; margin-bottom: 8px; font-size: 14px;">🤝 $1</h4>');
-                    formattedSection = formattedSection.replace(/^🌟\s+(.+)$/gm, '<h4 style="color: #a8a8a8; margin-top: 12px; margin-bottom: 8px; font-size: 14px;">🌟 $1</h4>');
-                    formattedSection = formattedSection.replace(/^🔧\s+(.+)$/gm, '<h4 style="color: #a8a8a8; margin-top: 12px; margin-bottom: 8px; font-size: 14px;">🔧 $1</h4>');
+                    formattedSection = formattedSection.replace(/^([✅📊🌿✨🎯👥🤝🌟🔧])\s+(.+)$/gm, '<h3 style="color: #0095f6; margin-top: 20px; margin-bottom: 12px; font-size: 16px; font-weight: 600;">$1 $2</h3>');
+                    
+                    // Подзаголовки
+                    formattedSection = formattedSection.replace(/^###\s+(.+)$/gm, '<h4 style="color: #ffffff; margin-top: 16px; margin-bottom: 8px; font-size: 14px; font-weight: 600;">$1</h4>');
                     
                     // Списки с галочками
-                    formattedSection = formattedSection.replace(/^✔\s+(.+)$/gm, '<div style="color: #0095f6; margin: 4px 0;">✔ $1</div>');
+                    formattedSection = formattedSection.replace(/^✔\s+(.+)$/gm, '<div style="color: #0095f6; margin: 6px 0; padding-left: 8px;">✔ $1</div>');
                     
                     // Нумерованные списки
-                    formattedSection = formattedSection.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="margin: 4px 0; padding-left: 16px;">$1. $2</div>');
+                    formattedSection = formattedSection.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="margin: 6px 0; padding-left: 16px; color: #ffffff;">$1. $2</div>');
+                    
+                    // Маркированные списки
+                    formattedSection = formattedSection.replace(/^[-•]\s+(.+)$/gm, '<div style="margin: 4px 0; padding-left: 16px; color: #ffffff;">• $1</div>');
                     
                     // Жирный текст
-                    formattedSection = formattedSection.replace(/\*\*(.+?)\*\*/g, '<strong style="color: #ffffff;">$1</strong>');
+                    formattedSection = formattedSection.replace(/\*\*(.+?)\*\*/g, '<strong style="color: #ffffff; font-weight: 600;">$1</strong>');
                     
-                    html += `<div style="color: #ffffff; line-height: 1.6; margin-bottom: 16px; white-space: pre-wrap;">${formattedSection}</div>`;
+                    // Курсив
+                    formattedSection = formattedSection.replace(/\*(.+?)\*/g, '<em style="color: #a8a8a8;">$1</em>');
+                    
+                    html += `<div style="color: #ffffff; line-height: 1.7; margin-bottom: 16px; white-space: pre-wrap;">${formattedSection}</div>`;
                 }
             });
             
-            html += '</div>';
-            html += '<button class="btn btn-secondary btn-full" onclick="displayUserData(currentProfileData)" style="margin-top: 16px;">Назад к статистике</button>';
-            
-            resultsDiv.innerHTML = html;
+            reportDiv.innerHTML = html;
         }
         
         function formatNumber(num) {
