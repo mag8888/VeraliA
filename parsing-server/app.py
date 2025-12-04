@@ -11,7 +11,6 @@ from dotenv import load_dotenv
 from database import init_db, get_db, InstagramProfile
 from image_parser import InstagramScreenshotParser
 from screenshot_service import InstagramScreenshotService
-from report_generator import InstagramReportGenerator
 from gpt_analyzer import GPTAnalyzer
 
 load_dotenv()
@@ -28,9 +27,6 @@ parser = InstagramScreenshotParser()
 
 # Инициализация сервиса скриншотов
 screenshot_service = InstagramScreenshotService()
-
-# Инициализация генератора отчетов
-report_generator = InstagramReportGenerator()
 
 # GPT анализатор будет инициализирован при первом использовании
 gpt_analyzer = None
@@ -206,12 +202,8 @@ async def analyze_instagram(
                 db.commit()
                 db.refresh(profile)
                 logger.info("GPT отчеты сохранены в базу данных")
-            
-            # Также генерируем базовый отчет (fallback, если GPT недоступен)
-            basic_report = None
-            if not gpt_reports.get("ru"):
-                basic_report = report_generator.generate_report(profile_dict, screenshot_data)
-                logger.info("Использован базовый отчет (GPT недоступен)")
+            else:
+                logger.warning(f"GPT отчет не был сгенерирован для {username}. Проверьте OPENAI_API_KEY.")
             
             return {
                 "status": "success",
@@ -219,7 +211,7 @@ async def analyze_instagram(
                 "data": profile_dict,
                 "screenshot_data": screenshot_data,
                 "report": {
-                    "ru": gpt_reports.get("ru") or basic_report or "",
+                    "ru": gpt_reports.get("ru") or "",
                     "en": gpt_reports.get("en") or ""
                 }
             }
