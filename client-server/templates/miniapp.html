@@ -265,6 +265,13 @@
         <div class="content-section">
             <!-- Страница 1: Ввод username -->
             <div id="page1" class="page active">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 20px; font-weight: 600;">Новый профиль</h2>
+                    <button class="btn btn-secondary" onclick="goToProfilesList()" style="width: auto; padding: 8px 16px;">
+                        📋 Список
+                    </button>
+                </div>
+                
                 <div class="search-box">
                     <input type="text" id="usernameInput" placeholder="Введите username или URL Instagram" />
                     <div class="button-group">
@@ -306,6 +313,26 @@
             <!-- Страница 3: Результаты -->
             <div id="page3" class="page">
                 <div id="results"></div>
+            </div>
+            
+            <!-- Страница 4: Список профилей -->
+            <div id="page4" class="page">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="font-size: 20px; font-weight: 600;">Сохраненные профили</h2>
+                    <button class="btn" onclick="goBackToPage1()" style="width: auto; padding: 8px 16px;">
+                        + Добавить
+                    </button>
+                </div>
+                
+                <div id="profilesList">
+                    <div class="loading">Загрузка профилей...</div>
+                </div>
+            </div>
+            
+            <!-- Страница 5: Детальный просмотр профиля -->
+            <div id="page5" class="page">
+                <button class="back-button" onclick="goToProfilesList()">← Назад к списку</button>
+                <div id="profileDetails"></div>
             </div>
         </div>
     </div>
@@ -429,6 +456,11 @@
                         <button class="btn btn-full" onclick="loadUserData()" style="margin-top: 12px;">
                             Просмотреть данные
                         </button>
+                        <div class="button-group" style="margin-top: 12px;">
+                            <button class="btn btn-full" onclick="saveProfile()" style="background: #ed4956; border: 1px solid #ed4956;">
+                                Сохранить профиль
+                            </button>
+                        </div>
                         <button class="btn btn-secondary btn-full" onclick="goBackToPage1()" style="margin-top: 8px;">
                             Загрузить другой профиль
                         </button>
@@ -482,6 +514,7 @@
         }
         
         function displayUserData(data) {
+            currentProfileData = data;
             const resultsDiv = document.getElementById('results');
             
             resultsDiv.innerHTML = `
@@ -517,7 +550,12 @@
                         </div>
                     ` : ''}
                 </div>
-                <button class="btn btn-secondary btn-full" onclick="goBackToPage1()">
+                <div class="button-group" style="margin-top: 16px;">
+                    <button class="btn btn-full" onclick="saveProfile()" style="background: #ed4956; border: 1px solid #ed4956;">
+                        Сохранить
+                    </button>
+                </div>
+                <button class="btn btn-secondary btn-full" onclick="goBackToPage1()" style="margin-top: 8px;">
                     Загрузить другой профиль
                 </button>
             `;
@@ -532,10 +570,224 @@
             return num.toString();
         }
         
+        let currentProfileData = null;
+        
+        function saveProfile() {
+            if (!currentProfileData) {
+                alert('Нет данных для сохранения');
+                return;
+            }
+            
+            // Сохраняем в localStorage
+            let savedProfiles = JSON.parse(localStorage.getItem('savedProfiles') || '[]');
+            
+            // Проверяем, не сохранен ли уже этот профиль
+            const existingIndex = savedProfiles.findIndex(p => p.username === currentUsername);
+            
+            const profileData = {
+                username: currentUsername,
+                followers: currentProfileData.followers || 0,
+                following: currentProfileData.following || 0,
+                posts_count: currentProfileData.posts_count || 0,
+                engagement_rate: currentProfileData.engagement_rate || 0,
+                bio: currentProfileData.bio || '',
+                analyzed_at: currentProfileData.analyzed_at || new Date().toISOString(),
+                saved_at: new Date().toISOString()
+            };
+            
+            if (existingIndex >= 0) {
+                savedProfiles[existingIndex] = profileData;
+            } else {
+                savedProfiles.push(profileData);
+            }
+            
+            localStorage.setItem('savedProfiles', JSON.stringify(savedProfiles));
+            
+            alert('Профиль сохранен!');
+            goToProfilesList();
+        }
+        
+        function goToProfilesList() {
+            showPage('page4');
+            loadProfilesList();
+        }
+        
+        async function loadProfilesList() {
+            const profilesListDiv = document.getElementById('profilesList');
+            profilesListDiv.innerHTML = '<div class="loading">Загрузка профилей...</div>';
+            
+            try {
+                // Получаем сохраненные профили из localStorage
+                let savedProfiles = JSON.parse(localStorage.getItem('savedProfiles') || '[]');
+                
+                // Также пытаемся загрузить с сервера
+                try {
+                    const response = await fetch('/api/users');
+                    if (response.ok) {
+                        const serverProfiles = await response.json();
+                        // Объединяем с локальными
+                        const serverUsernames = new Set(savedProfiles.map(p => p.username));
+                        serverProfiles.forEach(profile => {
+                            if (!serverUsernames.has(profile.username)) {
+                                savedProfiles.push({
+                                    ...profile,
+                                    saved_at: profile.analyzed_at
+                                });
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.log('Не удалось загрузить профили с сервера:', e);
+                }
+                
+                if (savedProfiles.length === 0) {
+                    profilesListDiv.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <h3>Нет сохраненных профилей</h3>
+                            <p>Добавьте первый профиль, нажав кнопку "+ Добавить"</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Сортируем по дате сохранения (новые первые)
+                savedProfiles.sort((a, b) => new Date(b.saved_at || b.analyzed_at) - new Date(a.saved_at || a.analyzed_at));
+                
+                let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+                savedProfiles.forEach(profile => {
+                    html += `
+                        <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 16px; cursor: pointer;" onclick="viewProfile('${profile.username}')">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <div style="font-size: 18px; font-weight: 600; color: #ffffff;">${profile.username}</div>
+                                <div style="font-size: 12px; color: #8e8e8e;">
+                                    ${new Date(profile.saved_at || profile.analyzed_at).toLocaleDateString('ru-RU')}
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 16px; font-weight: 600; color: #ffffff;">${formatNumber(profile.followers || 0)}</div>
+                                    <div style="font-size: 10px; color: #8e8e8e;">подписчиков</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 16px; font-weight: 600; color: #ffffff;">${formatNumber(profile.posts_count || 0)}</div>
+                                    <div style="font-size: 10px; color: #8e8e8e;">публикаций</div>
+                                </div>
+                                <div style="text-align: center;">
+                                    <div style="font-size: 16px; font-weight: 600; color: #ed4956;">${profile.engagement_rate ? (profile.engagement_rate * 100).toFixed(1) + '%' : 'N/A'}</div>
+                                    <div style="font-size: 10px; color: #8e8e8e;">engagement</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                
+                profilesListDiv.innerHTML = html;
+                
+            } catch (error) {
+                profilesListDiv.innerHTML = `<div class="error">❌ Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        async function viewProfile(username) {
+            currentUsername = username;
+            showPage('page5');
+            
+            const profileDetailsDiv = document.getElementById('profileDetails');
+            profileDetailsDiv.innerHTML = '<div class="loading">Загрузка профиля...</div>';
+            
+            try {
+                // Сначала пытаемся загрузить с сервера
+                const response = await fetch(`/api/data/${encodeURIComponent(username)}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    currentProfileData = data;
+                    displayProfileDetails(data);
+                } else {
+                    // Если нет на сервере, ищем в localStorage
+                    const savedProfiles = JSON.parse(localStorage.getItem('savedProfiles') || '[]');
+                    const profile = savedProfiles.find(p => p.username === username);
+                    
+                    if (profile) {
+                        currentProfileData = profile;
+                        displayProfileDetails(profile);
+                    } else {
+                        profileDetailsDiv.innerHTML = `
+                            <div class="empty-state">
+                                <div class="empty-state-icon">📭</div>
+                                <h3>Профиль не найден</h3>
+                                <p>Профиль <strong>${username}</strong> не найден</p>
+                                <button class="btn btn-full" onclick="goToProfilesList()" style="margin-top: 16px;">
+                                    Назад к списку
+                                </button>
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                profileDetailsDiv.innerHTML = `<div class="error">❌ Ошибка: ${error.message}</div>`;
+            }
+        }
+        
+        function displayProfileDetails(data) {
+            const profileDetailsDiv = document.getElementById('profileDetails');
+            
+            profileDetailsDiv.innerHTML = `
+                <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
+                    <div style="font-size: 24px; font-weight: 600; margin-bottom: 20px; color: #ffffff;">${data.username}</div>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value">${formatNumber(data.followers || 0)}</div>
+                            <div class="stat-label">Подписчики</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${formatNumber(data.following || 0)}</div>
+                            <div class="stat-label">Подписки</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${formatNumber(data.posts_count || 0)}</div>
+                            <div class="stat-label">Публикации</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${data.engagement_rate ? (data.engagement_rate * 100).toFixed(1) + '%' : 'N/A'}</div>
+                            <div class="stat-label">Engagement Rate</div>
+                        </div>
+                    </div>
+                    ${data.bio ? `
+                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #262626;">
+                            <div style="font-size: 12px; color: #8e8e8e; margin-bottom: 8px;">Биография</div>
+                            <div style="font-size: 14px; color: #ffffff; line-height: 1.5;">${data.bio}</div>
+                        </div>
+                    ` : ''}
+                    ${data.analyzed_at ? `
+                        <div style="margin-top: 16px; text-align: center; color: #8e8e8e; font-size: 12px;">
+                            Обновлено: ${new Date(data.analyzed_at).toLocaleString('ru-RU')}
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="button-group">
+                    <button class="btn btn-full" onclick="goToUploadPage()">
+                        📷 Обновить данные
+                    </button>
+                </div>
+            `;
+        }
+        
         // Автозагрузка при Enter на странице 1
         document.getElementById('usernameInput').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 goToUploadPage();
+            }
+        });
+        
+        // При загрузке страницы показываем список профилей, если есть сохраненные
+        window.addEventListener('load', function() {
+            const savedProfiles = JSON.parse(localStorage.getItem('savedProfiles') || '[]');
+            if (savedProfiles.length > 0) {
+                // Можно автоматически показать список профилей
+                // или оставить первую страницу
             }
         });
     </script>
