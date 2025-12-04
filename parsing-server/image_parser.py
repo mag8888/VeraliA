@@ -197,9 +197,6 @@ class InstagramScreenshotParser:
                 
                 if data['followers'] > 0:
                     break
-                except Exception as e:
-                    logger.debug(f"Ошибка парсинга подписчиков: {e}")
-                    continue
         
         # Ищем подписки (following)
         following_patterns = [
