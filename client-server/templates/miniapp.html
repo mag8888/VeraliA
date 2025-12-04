@@ -780,9 +780,22 @@
         
         let currentProfileData = null;
         
-        function saveProfile() {
+        async function saveProfile() {
+            // Если данных нет, пытаемся загрузить с сервера
+            if (!currentProfileData && currentUsername) {
+                try {
+                    const response = await fetch(`/api/data/${encodeURIComponent(currentUsername)}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        currentProfileData = data.data || data;
+                    }
+                } catch (e) {
+                    console.log('Ошибка загрузки данных:', e);
+                }
+            }
+            
             if (!currentProfileData) {
-                alert('Нет данных для сохранения');
+                alert('Нет данных для сохранения. Сначала загрузите данные профиля.');
                 return;
             }
             
@@ -1007,9 +1020,22 @@
         }
         
         // Обновляем видимость кнопки после сохранения профиля
-        function saveProfile() {
+        async function saveProfile() {
+            // Если данных нет, пытаемся загрузить с сервера
+            if (!currentProfileData && currentUsername) {
+                try {
+                    const response = await fetch(`/api/data/${encodeURIComponent(currentUsername)}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        currentProfileData = data.data || data;
+                    }
+                } catch (e) {
+                    console.log('Ошибка загрузки данных:', e);
+                }
+            }
+            
             if (!currentProfileData) {
-                alert('Нет данных для сохранения');
+                alert('Нет данных для сохранения. Сначала загрузите данные профиля.');
                 return;
             }
             
