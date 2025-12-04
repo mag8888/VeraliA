@@ -6,8 +6,19 @@ from datetime import datetime
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://verali_user:verali_password@postgres:5432/verali_db")
 
+# Проверка на пустое значение или только пробелы
+if not DATABASE_URL or not DATABASE_URL.strip():
+    raise ValueError(
+        "DATABASE_URL не установлен или пуст! "
+        "Установите переменную DATABASE_URL в Railway: "
+        "${{Postgres.DATABASE_URL}} или ${{PostgreSQL.DATABASE_URL}}"
+    )
+
+# Удаляем пробелы в начале и конце
+DATABASE_URL = DATABASE_URL.strip()
+
 # Railway использует postgres://, но SQLAlchemy требует postgresql://
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 engine = create_engine(DATABASE_URL)
