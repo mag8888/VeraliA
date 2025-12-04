@@ -62,7 +62,9 @@ def extract_username_from_text(text: str) -> str:
     """
     Извлекает username Instagram из текста.
     Поддерживает:
+    - URL: https://www.instagram.com/username?igsh=...
     - URL: https://www.instagram.com/username/
+    - URL: https://www.instagram.com/username
     - @username
     - username
     """
@@ -70,16 +72,22 @@ def extract_username_from_text(text: str) -> str:
     
     # Если это URL Instagram
     if 'instagram.com' in text:
-        # Извлекаем username из URL
-        match = re.search(r'instagram\.com/([^/?]+)', text)
+        # Извлекаем username из URL (игнорируем query параметры и слэши)
+        match = re.search(r'instagram\.com/([^/?&#]+)', text)
         if match:
-            return match.group(1)
+            username = match.group(1)
+            # Удаляем возможные слэши и пробелы
+            username = username.strip('/').strip()
+            return username
     
     # Если начинается с @
     if text.startswith('@'):
-        return text[1:]
+        username = text[1:]
+        # Удаляем возможные слэши и пробелы
+        username = username.strip('/').strip()
+        return username
     
-    # Удаляем слэши и пробелы
+    # Удаляем слэши, пробелы и другие символы
     username = text.strip('/').strip()
     
     return username
