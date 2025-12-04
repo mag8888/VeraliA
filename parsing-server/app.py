@@ -338,20 +338,30 @@ async def get_all_users(db: Session = Depends(get_db)):
     Получает список всех пользователей
     
     Returns:
-        list: Список всех пользователей
+        dict: Список всех пользователей с дополнительными данными
     """
     profiles = db.query(InstagramProfile).all()
     
-    return [
-        {
-            "username": p.username,
-            "followers": p.followers,
-            "following": p.following,
-            "posts_count": p.posts_count,
-            "analyzed_at": p.analyzed_at.isoformat() if p.analyzed_at else None
-        }
-        for p in profiles
-    ]
+    return {
+        "users": [
+            {
+                "username": p.username,
+                "followers": p.followers,
+                "following": p.following,
+                "posts_count": p.posts_count,
+                "bio": p.bio,
+                "engagement_rate": p.engagement_rate,
+                "views": p.views,
+                "interactions": p.interactions,
+                "new_followers": p.new_followers,
+                "messages": p.messages,
+                "shares": p.shares,
+                "analyzed_at": p.analyzed_at.isoformat() if p.analyzed_at else None,
+                "updated_at": p.updated_at.isoformat() if p.updated_at else None
+            }
+            for p in profiles
+        ]
+    }
 
 
 @app.delete("/api/data/{username}")
