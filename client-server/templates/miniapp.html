@@ -593,11 +593,12 @@
             }
         }
         
-        function displayUserData(data) {
+        async function displayUserData(data) {
             currentProfileData = data;
             const resultsDiv = document.getElementById('results');
             
-            resultsDiv.innerHTML = `
+            // Показываем базовые данные
+            let html = `
                 <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
                     <div style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #ffffff;">${data.username}</div>
                     <div class="stats-grid">

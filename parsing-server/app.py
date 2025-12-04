@@ -141,18 +141,35 @@ async def analyze_instagram(
             db.commit()
             db.refresh(profile)
             
+            # Генерируем детальный отчет
+            profile_dict = {
+                "username": profile.username,
+                "followers": profile.followers,
+                "following": profile.following,
+                "posts_count": profile.posts_count,
+                "bio": profile.bio,
+                "engagement_rate": profile.engagement_rate,
+                "analyzed_at": profile.analyzed_at.isoformat()
+            }
+            
+            # Дополнительные данные из скриншота
+            screenshot_data = {
+                "views": parsed_data.get('views', 0),
+                "interactions": parsed_data.get('interactions', 0),
+                "new_followers": parsed_data.get('new_followers', 0),
+                "messages": parsed_data.get('messages', 0),
+                "shares": parsed_data.get('shares', 0)
+            }
+            
+            # Генерируем отчет
+            report = report_generator.generate_report(profile_dict, screenshot_data)
+            
             return {
                 "status": "success",
                 "message": "Данные успешно сохранены",
-                "data": {
-                    "username": profile.username,
-                    "followers": profile.followers,
-                    "following": profile.following,
-                    "posts_count": profile.posts_count,
-                    "bio": profile.bio,
-                    "engagement_rate": profile.engagement_rate,
-                    "analyzed_at": profile.analyzed_at.isoformat()
-                }
+                "data": profile_dict,
+                "screenshot_data": screenshot_data,
+                "report": report
             }
         except IntegrityError as e:
             db.rollback()
@@ -266,7 +283,7 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
     if not profile:
         raise HTTPException(status_code=404, detail="User not found")
     
-    return {
+    profile_dict = {
         "username": profile.username,
         "followers": profile.followers,
         "following": profile.following,
@@ -277,6 +294,30 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
         "created_at": profile.created_at.isoformat() if profile.created_at else None,
         "updated_at": profile.updated_at.isoformat() if profile.updated_at else None
     }
+    
+    # Генерируем отчет если есть данные
+    try:
+        # Пытаемся извлечь дополнительные данные из скриншота если есть
+        screenshot_data = {}
+        if profile.screenshot_path and os.path.exists(profile.screenshot_path):
+            try:
+                parsed_data = parser.parse_screenshot(profile.screenshot_path)
+                screenshot_data = {
+                    "views": parsed_data.get('views', 0),
+                    "interactions": parsed_data.get('interactions', 0),
+                    "new_followers": parsed_data.get('new_followers', 0),
+                    "messages": parsed_data.get('messages', 0),
+                    "shares": parsed_data.get('shares', 0)
+                }
+            except Exception as e:
+                logger.error(f"Ошибка при парсинге скриншота: {e}")
+        
+        report = report_generator.generate_report(profile_dict, screenshot_data)
+        profile_dict["report"] = report
+    except Exception as e:
+        logger.error(f"Ошибка генерации отчета: {e}")
+    
+    return profile_dict
 
 
 @app.get("/api/users")

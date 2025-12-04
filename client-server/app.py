@@ -617,6 +617,26 @@ async def get_user_data(username: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@app.get("/api/report/{username}")
+async def get_user_report(username: str):
+    """Получение детального отчета по профилю"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            # Формируем правильный URL
+            report_url = f"{PARSING_SERVER_URL}/api/report/{username}"
+            if not report_url.startswith(('http://', 'https://')):
+                report_url = f"https://{report_url}"
+            
+            async with session.get(report_url) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    raise HTTPException(status_code=404, detail="Report not found")
+    except Exception as e:
+        logger.error(f"Error fetching report: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @app.post("/api/create-screenshot/{username}")
 async def create_screenshot_endpoint(username: str):
     """
