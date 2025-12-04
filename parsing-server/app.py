@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from database import init_db, get_db, InstagramProfile
 from image_parser import InstagramScreenshotParser
 from screenshot_service import InstagramScreenshotService
+from report_generator import InstagramReportGenerator
 from screenshot_service import InstagramScreenshotService
 
 load_dotenv()
@@ -27,6 +28,9 @@ parser = InstagramScreenshotParser()
 
 # Инициализация сервиса скриншотов
 screenshot_service = InstagramScreenshotService()
+
+# Инициализация генератора отчетов
+report_generator = InstagramReportGenerator()
 
 # Конфигурация
 PORT = int(os.getenv("PORT", 8001))

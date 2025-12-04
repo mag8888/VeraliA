@@ -64,49 +64,132 @@ class InstagramScreenshotParser:
             'following': 0,
             'posts_count': 0,
             'bio': None,
-            'engagement_rate': None
+            'engagement_rate': None,
+            'views': 0,
+            'interactions': 0,
+            'new_followers': 0,
+            'messages': 0,
+            'shares': 0
         }
         
-        # Очищаем текст от лишних символов
-        text_clean = re.sub(r'[^\d\s\n]', ' ', text)
+        text_lower = text.lower()
         
-        # Ищем числа в тексте
-        numbers = re.findall(r'\d+', text)
+        # Ищем профессиональную панель данные
+        # Просмотры
+        views_match = re.search(r'просмотр[ыао]?[:\s]+([\d\s]+)', text_lower)
+        if views_match:
+            views_str = re.sub(r'[^\d]', '', views_match.group(1))
+            if views_str:
+                try:
+                    data['views'] = int(views_str)
+                except:
+                    pass
         
-        # Конвертируем в числа
-        numbers = [int(n) for n in numbers if len(n) > 0]
+        # Взаимодействия
+        interactions_match = re.search(r'взаимодейств[ияе]+[:\s]+([\d\s]+)', text_lower)
+        if interactions_match:
+            int_str = re.sub(r'[^\d]', '', interactions_match.group(1))
+            if int_str:
+                try:
+                    data['interactions'] = int(int_str)
+                except:
+                    pass
         
-        # Обычно в Instagram статистике:
-        # - Первое большое число - подписчики
-        # - Второе большое число - подписки
-        # - Третье большое число - публикации
+        # Новые подписчики
+        new_followers_match = re.search(r'нов[ые]+ подписчик[и]+[:\s]+([\d\s]+)', text_lower)
+        if new_followers_match:
+            nf_str = re.sub(r'[^\d]', '', new_followers_match.group(1))
+            if nf_str:
+                try:
+                    data['new_followers'] = int(nf_str)
+                except:
+                    pass
         
-        if len(numbers) >= 3:
-            # Сортируем числа по убыванию
-            sorted_numbers = sorted(numbers, reverse=True)
+        # Сообщения
+        messages_match = re.search(r'сообщени[йя]+[:\s]+([\d\s]+)', text_lower)
+        if messages_match:
+            msg_str = re.sub(r'[^\d]', '', messages_match.group(1))
+            if msg_str:
+                try:
+                    data['messages'] = int(msg_str)
+                except:
+                    pass
+        
+        # Шеринги
+        shares_match = re.search(r'поделил[ись]+[:\s]+([\d\s]+)', text_lower)
+        if shares_match:
+            sh_str = re.sub(r'[^\d]', '', shares_match.group(1))
+            if sh_str:
+                try:
+                    data['shares'] = int(sh_str)
+                except:
+                    pass
+        
+        # Ищем основные числа (подписчики, подписки, публикации)
+        # Ищем паттерны типа "44,5 тыс" или "44500"
+        numbers = []
+        
+        # Ищем числа с разделителями тысяч
+        number_patterns = [
+            r'(\d+)[,\s]+(\d+)\s*(тыс|k|thousand)',
+            r'(\d+)\s*(тыс|k|thousand)',
+            r'(\d+)[,\s]*(\d+)[,\s]*(\d+)',  # 44,500
+            r'\b(\d{4,})\b'  # Большие числа
+        ]
+        
+        for pattern in number_patterns:
+            matches = re.findall(pattern, text, re.IGNORECASE)
+            for match in matches:
+                if isinstance(match, tuple):
+                    num_str = ''.join([str(m) for m in match if str(m).isdigit()])
+                else:
+                    num_str = match
+                
+                if num_str and len(num_str) >= 3:
+                    try:
+                        num = int(num_str)
+                        if num > 10:  # Игнорируем маленькие числа
+                            numbers.append(num)
+                    except:
+                        pass
+        
+        # Если не нашли через паттерны, ищем все числа
+        if not numbers:
+            all_numbers = re.findall(r'\d+', text)
+            numbers = [int(n) for n in all_numbers if len(n) >= 3 and int(n) > 10]
+        
+        # Сортируем и берем три самых больших
+        if numbers:
+            sorted_numbers = sorted(set(numbers), reverse=True)
             
-            # Берем три самых больших числа
-            # (предполагаем, что это подписчики, подписки, публикации)
-            data['followers'] = sorted_numbers[0] if len(sorted_numbers) > 0 else 0
-            data['following'] = sorted_numbers[1] if len(sorted_numbers) > 1 else 0
-            data['posts_count'] = sorted_numbers[2] if len(sorted_numbers) > 2 else 0
+            # Обычно: подписчики > подписки > публикации
+            if len(sorted_numbers) >= 3:
+                data['followers'] = sorted_numbers[0]
+                data['following'] = sorted_numbers[1]
+                data['posts_count'] = sorted_numbers[2]
+            elif len(sorted_numbers) == 2:
+                data['followers'] = sorted_numbers[0]
+                data['following'] = sorted_numbers[1]
+            elif len(sorted_numbers) == 1:
+                data['followers'] = sorted_numbers[0]
         
         # Пытаемся найти биографию (текст между числами)
         lines = text.split('\n')
         bio_lines = []
         for line in lines:
             line_clean = line.strip()
-            if line_clean and not re.match(r'^\d+$', line_clean):
-                if len(line_clean) > 10:  # Игнорируем короткие строки
+            if line_clean and not re.match(r'^[\d\s,\.]+$', line_clean):
+                if len(line_clean) > 10 and not any(word in line_clean.lower() for word in ['подписчик', 'публикац', 'просмотр', 'взаимодейств']):
                     bio_lines.append(line_clean)
         
         if bio_lines:
-            data['bio'] = ' '.join(bio_lines[:3])  # Берем первые 3 строки
+            data['bio'] = ' '.join(bio_lines[:5])  # Берем первые 5 строк
         
-        # Вычисляем engagement rate (примерная формула)
-        if data['followers'] > 0 and data['posts_count'] > 0:
-            # Примерная оценка: engagement = (лайки + комментарии) / подписчики
-            # Для упрощения используем формулу на основе количества постов
+        # Вычисляем engagement rate
+        if data['interactions'] > 0 and data['followers'] > 0:
+            data['engagement_rate'] = round(data['interactions'] / data['followers'], 4)
+        elif data['followers'] > 0 and data['posts_count'] > 0:
+            # Примерная оценка на основе постов
             estimated_engagement = min(0.1, data['posts_count'] / (data['followers'] * 10))
             data['engagement_rate'] = round(estimated_engagement, 4)
         
