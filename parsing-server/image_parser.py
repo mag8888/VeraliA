@@ -129,11 +129,18 @@ class InstagramScreenshotParser:
         # Сначала ищем конкретно подписчиков, подписки и публикации по контексту
         
         # Ищем подписчиков (followers) - самый важный показатель
+        # Сначала ищем явные упоминания "followers" или "подписчик"
         followers_patterns = [
             r'(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)\s*(подписчик|follower|followers)',
             r'(подписчик|follower|followers)[:\s]+(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)?',
             r'(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)\s*(followers|подписчик)',
-            r'\b(\d{2,3})\s*(тыс|k|thousand|тысяч)\b',  # 102K, 44K и т.д.
+            r'(\d{2,3})\s*(k|тыс|thousand|тысяч)\s*(followers|подписчик)',  # 102K followers
+        ]
+        
+        # Также ищем числа в формате "102K" рядом со словом "followers" или "подписчик"
+        context_patterns = [
+            r'(\d{2,3})\s*(k|тыс|thousand|тысяч)\b.*?(followers|подписчик)',
+            r'(followers|подписчик).*?(\d{2,3})\s*(k|тыс|thousand|тысяч)\b',
         ]
         
         for pattern in followers_patterns:
@@ -157,6 +164,36 @@ class InstagramScreenshotParser:
                         data['followers'] = max(data['followers'], num)
                         logger.info(f"Найдено подписчиков: {num}")
                         break
+        
+        # Если не нашли через основные паттерны, ищем через контекстные
+        if data['followers'] == 0:
+            for pattern in context_patterns:
+                matches = re.finditer(pattern, text, re.IGNORECASE)
+                for match in matches:
+                    try:
+                        # Ищем число и суффикс в разных группах
+                        groups = match.groups()
+                        num_str = None
+                        suffix = None
+                        
+                        for g in groups:
+                            if g and g.isdigit():
+                                num_str = g
+                            elif g and g.lower() in ['k', 'тыс', 'thousand', 'тысяч']:
+                                suffix = g
+                        
+                        if num_str and suffix:
+                            num = float(num_str) * 1000
+                            if num > 1000:
+                                data['followers'] = max(data['followers'], int(num))
+                                logger.info(f"Найдено подписчиков через контекст: {int(num)}")
+                                break
+                    except Exception as e:
+                        logger.debug(f"Ошибка парсинга контекста: {e}")
+                        continue
+                
+                if data['followers'] > 0:
+                    break
                 except Exception as e:
                     logger.debug(f"Ошибка парсинга подписчиков: {e}")
                     continue
