@@ -259,37 +259,9 @@ async def analyze_link_only(username: str, db: Session = Depends(get_db)):
             db.refresh(profile)
             logger.info(f"Создан новый профиль {username} для анализа только по ссылке")
         
-        # Пытаемся получить актуальные данные профиля из Instagram через скриншот
-        # Если скриншота нет, используем существующие данные из базы
-        # ВАЖНО: Обновление данных из скриншота может занять время, поэтому делаем это только если данных нет
-        if profile.followers == 0 or profile.posts_count == 0:
-            try:
-                # Пытаемся создать скриншот профиля для получения актуальных данных
-                logger.info(f"Попытка обновить данные профиля {username} из скриншота...")
-                screenshot_path = await screenshot_service.take_profile_screenshot(username)
-                if screenshot_path:
-                    # Парсим скриншот для получения актуальных данных
-                    parsed_data = parser.parse_screenshot(screenshot_path)
-                    
-                    # Обновляем данные профиля актуальными значениями
-                    if parsed_data.get('followers', 0) > 0:
-                        profile.followers = parsed_data.get('followers', profile.followers)
-                    if parsed_data.get('following', 0) > 0:
-                        profile.following = parsed_data.get('following', profile.following)
-                    if parsed_data.get('posts_count', 0) > 0:
-                        profile.posts_count = parsed_data.get('posts_count', profile.posts_count)
-                    if parsed_data.get('bio'):
-                        profile.bio = parsed_data.get('bio', profile.bio)
-                    if parsed_data.get('engagement_rate'):
-                        profile.engagement_rate = parsed_data.get('engagement_rate', profile.engagement_rate)
-                    
-                    profile.updated_at = datetime.utcnow()
-                    db.commit()
-                    db.refresh(profile)
-                    logger.info(f"Данные профиля {username} обновлены из скриншота: followers={profile.followers}")
-            except Exception as e:
-                logger.warning(f"Не удалось обновить данные из скриншота: {e}. Используем существующие данные.")
-                # Не прерываем выполнение, продолжаем с существующими данными
+        # НЕ обновляем данные из скриншота при запросе данных - это может занять много времени
+        # Обновление данных должно происходить только при явном анализе профиля
+        # Используем существующие данные из базы
         
         # Используем актуальные данные профиля
         profile_dict = {
