@@ -1,5 +1,9 @@
 # Решение проблемы "Dockerfile does not exist" на Railway
 
+## Для Parsing Server (та же проблема)
+
+Если у Parsing Server та же ошибка, выполните те же шаги, но для Root Directory укажите: `parsing-server`
+
 ## Если Root Directory указан, но ошибка остается
 
 ### Шаг 1: Проверьте, что Root Directory сохранен
