@@ -253,7 +253,9 @@ async def analyze_link_only(username: str, db: Session = Depends(get_db)):
             screenshot_path = await screenshot_service.take_profile_screenshot(username)
             
             # Парсим скриншот для получения публичных данных
+            logger.info(f"Парсинг скриншота для получения данных профиля {username}")
             parsed_data = parser.parse_screenshot(screenshot_path)
+            logger.info(f"Результаты парсинга для {username}: followers={parsed_data.get('followers')}, posts={parsed_data.get('posts_count')}, bio={bool(parsed_data.get('bio'))}")
             
             if not profile:
                 # Создаем новый профиль с данными
@@ -296,6 +298,10 @@ async def analyze_link_only(username: str, db: Session = Depends(get_db)):
                 db.commit()
                 db.refresh(profile)
             logger.warning(f"Используем существующие данные профиля {username} для GPT анализа")
+        
+        # ВАЖНО: GPT анализ выполняется ВСЕГДА, даже если данные неполные
+        # GPT может проанализировать аккаунт на основе биографии и других доступных данных
+        logger.info(f"Подготовка данных для GPT анализа {username}: followers={profile.followers}, posts={profile.posts_count}, bio={bool(profile.bio)}")
         
         # Используем актуальные данные профиля
         profile_dict = {
