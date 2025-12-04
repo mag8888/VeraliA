@@ -1,5 +1,6 @@
 import os
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,10 +19,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# FastAPI приложение
-app = FastAPI(title="Verali Client Server")
-templates = Jinja2Templates(directory="templates")
-
 # Конфигурация
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 if not TELEGRAM_BOT_TOKEN:
@@ -37,6 +34,23 @@ MINIAPP_URL = os.getenv("MINIAPP_URL", f"http://localhost:{PORT}/miniapp")
 
 # Инициализация Telegram бота
 telegram_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup - запуск бота
+    logger.info("Starting Telegram bot...")
+    await telegram_app.initialize()
+    await telegram_app.start()
+    await telegram_app.updater.start_polling()
+    logger.info("Telegram bot started successfully")
+    yield
+    # Shutdown - остановка бота
+    logger.info("Stopping Telegram bot...")
+    await telegram_app.updater.stop()
+    await telegram_app.stop()
+    await telegram_app.shutdown()
+    logger.info("Telegram bot stopped")
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -203,28 +217,13 @@ async def get_all_users():
         return []
 
 
-async def start_bot():
-    """Запуск Telegram бота"""
-    await telegram_app.initialize()
-    await telegram_app.start()
-    await telegram_app.updater.start_polling()
-
-
-async def stop_bot():
-    """Остановка Telegram бота"""
-    await telegram_app.updater.stop()
-    await telegram_app.stop()
-    await telegram_app.shutdown()
+# FastAPI приложение с lifespan
+app = FastAPI(title="Verali Client Server", lifespan=lifespan)
+templates = Jinja2Templates(directory="templates")
 
 
 if __name__ == "__main__":
     import uvicorn
-    import asyncio
-    
-    # Запускаем бота в фоне
-    loop = asyncio.get_event_loop()
-    loop.create_task(start_bot())
-    
-    # Запускаем FastAPI сервер
+    # Запускаем FastAPI сервер (бот запустится через lifespan)
     uvicorn.run(app, host="0.0.0.0", port=PORT)
 
