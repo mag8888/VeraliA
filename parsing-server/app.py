@@ -12,7 +12,7 @@ from database import init_db, get_db, InstagramProfile
 from image_parser import InstagramScreenshotParser
 from screenshot_service import InstagramScreenshotService
 from report_generator import InstagramReportGenerator
-from screenshot_service import InstagramScreenshotService
+from gpt_analyzer import GPTAnalyzer
 
 load_dotenv()
 
@@ -31,6 +31,9 @@ screenshot_service = InstagramScreenshotService()
 
 # Инициализация генератора отчетов
 report_generator = InstagramReportGenerator()
+
+# Инициализация GPT анализатора
+gpt_analyzer = GPTAnalyzer()
 
 # Конфигурация
 PORT = int(os.getenv("PORT", 8001))
@@ -173,15 +176,33 @@ async def analyze_instagram(
                 "shares": parsed_data.get('shares', 0)
             }
             
-            # Генерируем отчет
-            report = report_generator.generate_report(profile_dict, screenshot_data)
+            # Генерируем отчет с помощью GPT (если доступен)
+            gpt_reports = gpt_analyzer.generate_report(profile_dict, screenshot_data)
+            
+            # Сохраняем GPT отчеты в базу
+            if gpt_reports.get("ru") or gpt_reports.get("en"):
+                profile.report_ru = gpt_reports.get("ru")
+                profile.report_en = gpt_reports.get("en")
+                profile.report_generated_at = datetime.utcnow()
+                db.commit()
+                db.refresh(profile)
+                logger.info("GPT отчеты сохранены в базу данных")
+            
+            # Также генерируем базовый отчет (fallback, если GPT недоступен)
+            basic_report = None
+            if not gpt_reports.get("ru"):
+                basic_report = report_generator.generate_report(profile_dict, screenshot_data)
+                logger.info("Использован базовый отчет (GPT недоступен)")
             
             return {
                 "status": "success",
                 "message": "Данные успешно сохранены",
                 "data": profile_dict,
                 "screenshot_data": screenshot_data,
-                "report": report
+                "report": {
+                    "ru": gpt_reports.get("ru") or basic_report or "",
+                    "en": gpt_reports.get("en") or ""
+                }
             }
         except IntegrityError as e:
             db.rollback()

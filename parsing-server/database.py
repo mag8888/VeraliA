@@ -52,6 +52,11 @@ class InstagramProfile(Base):
     new_followers = Column(Integer, default=0)
     messages = Column(Integer, default=0)
     shares = Column(Integer, default=0)
+    
+    # Поля для GPT отчетов
+    report_ru = Column(Text, nullable=True)  # Отчет на русском языке
+    report_en = Column(Text, nullable=True)  # Отчет на английском языке
+    report_generated_at = Column(DateTime, nullable=True)  # Дата генерации отчета
 
 
 def init_db():
@@ -70,7 +75,10 @@ def init_db():
             'interactions': Integer,
             'new_followers': Integer,
             'messages': Integer,
-            'shares': Integer
+            'shares': Integer,
+            'report_ru': Text,
+            'report_en': Text,
+            'report_generated_at': DateTime
         }
         
         # Добавляем недостающие колонки
@@ -80,6 +88,10 @@ def init_db():
                     logger.info(f"Добавление колонки {col_name} в таблицу instagram_profiles")
                     if col_type == Integer:
                         conn.execute(text(f"ALTER TABLE instagram_profiles ADD COLUMN {col_name} INTEGER DEFAULT 0"))
+                    elif col_type == Text:
+                        conn.execute(text(f"ALTER TABLE instagram_profiles ADD COLUMN {col_name} TEXT"))
+                    elif col_type == DateTime:
+                        conn.execute(text(f"ALTER TABLE instagram_profiles ADD COLUMN {col_name} TIMESTAMP"))
                     conn.commit()
                     logger.info(f"Колонка {col_name} успешно добавлена")
 
