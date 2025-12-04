@@ -1199,31 +1199,46 @@
                 return;
             }
             
+            const profilesListDiv = document.getElementById('profilesList');
+            profilesListDiv.innerHTML = '<div class="loading">Очистка данных...</div>';
+            
             try {
-                // Очищаем localStorage
+                // Сначала очищаем localStorage
                 localStorage.removeItem('savedProfiles');
                 
                 // Удаляем все профили с сервера
                 const response = await fetch('/api/delete-all-profiles', {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
                 
                 if (response.ok) {
                     const result = await response.json();
-                    alert(`✅ Удалено: ${result.deleted_count || 0} профилей`);
+                    const deletedCount = result.deleted_count || 0;
                     
                     // Обновляем список профилей
                     loadProfilesList();
+                    
+                    // Показываем сообщение об успехе
+                    setTimeout(() => {
+                        alert(`✅ Успешно удалено ${deletedCount} профилей`);
+                    }, 500);
                 } else {
-                    // Если endpoint не доступен, просто очищаем localStorage
-                    alert('✅ Локальные данные очищены');
+                    const errorData = await response.json().catch(() => ({ detail: 'Неизвестная ошибка' }));
+                    console.error('Ошибка при удалении:', errorData);
+                    
+                    // Обновляем список (локальные данные уже очищены)
                     loadProfilesList();
+                    alert('✅ Локальные данные очищены. Ошибка при удалении с сервера: ' + (errorData.detail || 'Неизвестная ошибка'));
                 }
             } catch (error) {
                 console.error('Ошибка при очистке данных:', error);
-                // Очищаем только localStorage если сервер недоступен
-                alert('✅ Локальные данные очищены');
+                
+                // Обновляем список (локальные данные уже очищены)
                 loadProfilesList();
+                alert('✅ Локальные данные очищены. Ошибка при удалении с сервера: ' + error.message);
             }
         }
         
