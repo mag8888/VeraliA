@@ -243,65 +243,59 @@ async def analyze_link_only(username: str, db: Session = Depends(get_db)):
             InstagramProfile.username == username
         ).first()
         
-        # Проверяем, нужно ли обновить данные профиля
-        # Если профиль новый или данные пустые, получаем их через скриншот главной страницы
-        need_update = False
-        if not profile:
-            need_update = True
-            logger.info(f"Профиль {username} не найден, создаем новый и получаем данные")
-        elif profile.followers == 0 and profile.posts_count == 0 and not profile.bio:
-            need_update = True
-            logger.info(f"Профиль {username} существует, но данные пустые, обновляем")
+        # ВСЕГДА получаем актуальные данные профиля через скриншот перед GPT анализом
+        # Это гарантирует, что GPT получит свежие данные для анализа
+        logger.info(f"Получение актуальных данных профиля {username} для GPT анализа")
         
-        if need_update:
-            try:
-                # Создаем скриншот главной страницы профиля для получения публичных данных
-                logger.info(f"Создание скриншота главной страницы для {username}")
-                screenshot_path = await screenshot_service.take_profile_screenshot(username)
-                
-                # Парсим скриншот для получения публичных данных
-                parsed_data = parser.parse_screenshot(screenshot_path)
-                
-                if not profile:
-                    # Создаем новый профиль с данными
-                    profile = InstagramProfile(
-                        username=username,
-                        followers=parsed_data.get('followers', 0),
-                        following=parsed_data.get('following', 0),
-                        posts_count=parsed_data.get('posts_count', 0),
-                        bio=parsed_data.get('bio'),
-                        engagement_rate=parsed_data.get('engagement_rate'),
-                        screenshot_path=screenshot_path
-                    )
-                    db.add(profile)
-                else:
-                    # Обновляем существующий профиль
-                    profile.followers = parsed_data.get('followers', 0)
-                    profile.following = parsed_data.get('following', 0)
-                    profile.posts_count = parsed_data.get('posts_count', 0)
-                    profile.bio = parsed_data.get('bio')
-                    profile.engagement_rate = parsed_data.get('engagement_rate')
-                    profile.screenshot_path = screenshot_path
-                    profile.updated_at = datetime.utcnow()
-                
+        try:
+            # Создаем скриншот главной страницы профиля для получения публичных данных
+            logger.info(f"Создание скриншота главной страницы для {username}")
+            screenshot_path = await screenshot_service.take_profile_screenshot(username)
+            
+            # Парсим скриншот для получения публичных данных
+            parsed_data = parser.parse_screenshot(screenshot_path)
+            
+            if not profile:
+                # Создаем новый профиль с данными
+                profile = InstagramProfile(
+                    username=username,
+                    followers=parsed_data.get('followers', 0),
+                    following=parsed_data.get('following', 0),
+                    posts_count=parsed_data.get('posts_count', 0),
+                    bio=parsed_data.get('bio'),
+                    engagement_rate=parsed_data.get('engagement_rate'),
+                    screenshot_path=screenshot_path
+                )
+                db.add(profile)
+            else:
+                # Обновляем существующий профиль актуальными данными
+                profile.followers = parsed_data.get('followers', 0)
+                profile.following = parsed_data.get('following', 0)
+                profile.posts_count = parsed_data.get('posts_count', 0)
+                profile.bio = parsed_data.get('bio')
+                profile.engagement_rate = parsed_data.get('engagement_rate')
+                profile.screenshot_path = screenshot_path
+                profile.updated_at = datetime.utcnow()
+            
+            db.commit()
+            db.refresh(profile)
+            logger.info(f"Данные профиля {username} получены и обновлены: {profile.followers} подписчиков, {profile.posts_count} постов, bio: {bool(profile.bio)}")
+        except Exception as e:
+            logger.error(f"Ошибка при получении данных профиля через скриншот: {e}")
+            # Если не удалось получить данные, создаем/используем профиль с существующими данными
+            if not profile:
+                profile = InstagramProfile(
+                    username=username,
+                    followers=0,
+                    following=0,
+                    posts_count=0,
+                    bio=None,
+                    engagement_rate=None
+                )
+                db.add(profile)
                 db.commit()
                 db.refresh(profile)
-                logger.info(f"Данные профиля {username} обновлены: {profile.followers} подписчиков, {profile.posts_count} постов")
-            except Exception as e:
-                logger.warning(f"Не удалось получить данные профиля через скриншот: {e}")
-                # Если не удалось получить данные, создаем профиль с нулевыми данными
-                if not profile:
-                    profile = InstagramProfile(
-                        username=username,
-                        followers=0,
-                        following=0,
-                        posts_count=0,
-                        bio=None,
-                        engagement_rate=None
-                    )
-                    db.add(profile)
-                    db.commit()
-                    db.refresh(profile)
+            logger.warning(f"Используем существующие данные профиля {username} для GPT анализа")
         
         # Используем актуальные данные профиля
         profile_dict = {
@@ -321,18 +315,32 @@ async def analyze_link_only(username: str, db: Session = Depends(get_db)):
             "shares": profile.shares
         }
         
-        # Генерируем GPT отчет на основе доступных данных
+        # ВАЖНО: Генерируем GPT отчет на основе актуальных данных профиля
+        # GPT анализ ВСЕГДА выполняется перед возвратом результата
+        logger.info(f"Начало GPT анализа профиля {username} с данными: {profile.followers} подписчиков, {profile.posts_count} постов")
+        
         analyzer = get_gpt_analyzer()
-        if analyzer and analyzer.client:
-            try:
-                logger.info(f"Генерация GPT отчета для {username} (анализ только по ссылке)")
-                gpt_reports = analyzer.generate_report(profile_dict, screenshot_data)
-            except Exception as e:
-                logger.error(f"Ошибка генерации GPT отчета: {e}")
-                raise HTTPException(status_code=500, detail=f"Ошибка генерации отчета: {str(e)}")
-        else:
+        if not analyzer or not analyzer.client:
+            logger.error("GPT анализатор недоступен. Проверьте OPENAI_API_KEY.")
             raise HTTPException(status_code=503, detail="GPT анализатор недоступен. Проверьте OPENAI_API_KEY.")
         
+        try:
+            logger.info(f"Генерация GPT отчета для {username} (анализ только по ссылке)")
+            gpt_reports = analyzer.generate_report(profile_dict, screenshot_data)
+            
+            # Проверяем, что отчет был сгенерирован
+            if not gpt_reports.get("ru") and not gpt_reports.get("en"):
+                logger.error(f"GPT отчет не был сгенерирован для {username}")
+                raise HTTPException(status_code=500, detail="GPT отчет не был сгенерирован. Попробуйте позже.")
+            
+            logger.info(f"GPT отчет успешно сгенерирован для {username}, длина: {len(gpt_reports.get('ru', ''))} символов")
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Ошибка генерации GPT отчета для {username}: {e}")
+            raise HTTPException(status_code=500, detail=f"Ошибка генерации GPT отчета: {str(e)}")
+        
+        # Сохраняем GPT отчет в базу данных
         if gpt_reports.get("ru") or gpt_reports.get("en"):
             # Сохраняем GPT отчет в базу
             profile.report_ru = gpt_reports.get("ru")
