@@ -322,7 +322,15 @@ async def create_screenshot(username: str, db: Session = Depends(get_db)):
             }
             
             # Генерируем отчет с помощью GPT
-            gpt_reports = gpt_analyzer.generate_report(profile_dict, screenshot_data)
+            analyzer = get_gpt_analyzer()
+            if analyzer and analyzer.client:
+                try:
+                    gpt_reports = analyzer.generate_report(profile_dict, screenshot_data)
+                except Exception as e:
+                    logger.error(f"Ошибка генерации GPT отчета: {e}")
+                    gpt_reports = {"ru": "", "en": ""}
+            else:
+                gpt_reports = {"ru": "", "en": ""}
             
             # Сохраняем GPT отчеты в базу
             if gpt_reports.get("ru") or gpt_reports.get("en"):
@@ -412,7 +420,15 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
         # Генерируем отчет, если его нет в базе
         try:
             # Пытаемся сгенерировать через GPT
-            gpt_reports = gpt_analyzer.generate_report(profile_dict, screenshot_data)
+            analyzer = get_gpt_analyzer()
+            if analyzer and analyzer.client:
+                try:
+                    gpt_reports = analyzer.generate_report(profile_dict, screenshot_data)
+                except Exception as e:
+                    logger.error(f"Ошибка генерации GPT отчета: {e}")
+                    gpt_reports = {"ru": "", "en": ""}
+            else:
+                gpt_reports = {"ru": "", "en": ""}
             
             if gpt_reports.get("ru") or gpt_reports.get("en"):
                 # Сохраняем в базу
