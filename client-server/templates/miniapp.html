@@ -1650,38 +1650,59 @@
         let existingProfileUsername = '';
         
         // Проверка существования профиля при вводе
+        let checkProfileTimeout = null;
         document.getElementById('usernameInput').addEventListener('input', async function(e) {
             const input = e.target.value.trim();
+            
+            // Очищаем предыдущий таймаут
+            if (checkProfileTimeout) {
+                clearTimeout(checkProfileTimeout);
+            }
+            
             if (!input) {
                 document.getElementById('profileExistsMessage').style.display = 'none';
                 existingProfileUsername = '';
                 return;
             }
             
-            const username = extractUsername(input);
-            if (!username) return;
-            
-            // Проверяем существование профиля
-            try {
-                const response = await fetch(`/api/data/${encodeURIComponent(username)}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    // Проверяем, есть ли отчет GPT
-                    if (data.report && (data.report.ru || data.report.en)) {
-                        existingProfileUsername = username;
-                        document.getElementById('profileExistsMessage').style.display = 'block';
+            // Дебаунс - проверяем через 500ms после остановки ввода
+            checkProfileTimeout = setTimeout(async () => {
+                const username = extractUsername(input);
+                if (!username) {
+                    document.getElementById('profileExistsMessage').style.display = 'none';
+                    existingProfileUsername = '';
+                    return;
+                }
+                
+                console.log('Проверка существования профиля:', username); // Отладка
+                
+                // Проверяем существование профиля
+                try {
+                    const response = await fetch(`/api/data/${encodeURIComponent(username)}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log('Данные профиля получены:', data); // Отладка
+                        // Проверяем, есть ли отчет GPT
+                        if (data.report && (data.report.ru || data.report.en)) {
+                            existingProfileUsername = username;
+                            document.getElementById('profileExistsMessage').style.display = 'block';
+                            console.log('Профиль найден, показываем кнопку'); // Отладка
+                        } else {
+                            existingProfileUsername = '';
+                            document.getElementById('profileExistsMessage').style.display = 'none';
+                            console.log('Профиль найден, но нет GPT отчета'); // Отладка
+                        }
                     } else {
                         existingProfileUsername = '';
                         document.getElementById('profileExistsMessage').style.display = 'none';
+                        console.log('Профиль не найден'); // Отладка
                     }
-                } else {
+                } catch (error) {
+                    console.error('Ошибка при проверке профиля:', error); // Отладка
                     existingProfileUsername = '';
                     document.getElementById('profileExistsMessage').style.display = 'none';
                 }
-            } catch (error) {
-                existingProfileUsername = '';
-                document.getElementById('profileExistsMessage').style.display = 'none';
-            }
+            }, 500);
         });
         
         // Автозагрузка при Enter на странице 1
