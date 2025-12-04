@@ -316,6 +316,12 @@
             </div>
             
             <!-- Страница 5: Удалена - теперь сразу переходим к аналитике -->
+            
+            <!-- Страница 6: Аналитика с GPT данными и графиками -->
+            <div id="page6" class="page">
+                <button class="back-button" onclick="goToProfilesList()">← Назад к списку</button>
+                <div id="analyticsContent" style="padding-bottom: 20px;"></div>
+            </div>
         </div>
     </div>
     
@@ -809,58 +815,119 @@
             fullReportText = reportText;
             isFullReportVisible = false;
             
+            const followers = profileData.followers || 0;
+            const following = profileData.following || 0;
+            const posts = profileData.posts_count || 0;
+            const engagementRate = (profileData.engagement_rate || 0) * 100;
+            const views = profileData.views || profileData.screenshot_data?.views || 0;
+            const interactions = profileData.interactions || profileData.screenshot_data?.interactions || 0;
+            const newFollowers = profileData.new_followers || profileData.screenshot_data?.new_followers || 0;
+            const shares = profileData.shares || profileData.screenshot_data?.shares || 0;
+            const messages = profileData.messages || profileData.screenshot_data?.messages || 0;
+            
             let html = '';
             
-            // Заголовок
+            // Красивый заголовок с градиентом
             html += `
-                <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
-                    <h2 style="font-size: 24px; font-weight: 600; margin-bottom: 8px; color: #ffffff;">📊 Аналитика профиля</h2>
-                    <div style="font-size: 18px; color: #0095f6; margin-bottom: 4px;">@${profileData.username || currentUsername}</div>
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; padding: 24px; margin-bottom: 20px; box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                        <h2 style="font-size: 28px; font-weight: 700; margin: 0; color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">📊 Аналитика профиля</h2>
+                        <div style="background: rgba(255,255,255,0.2); border-radius: 12px; padding: 8px 16px; backdrop-filter: blur(10px);">
+                            <div style="font-size: 20px; font-weight: 600; color: #ffffff;">@${profileData.username || currentUsername}</div>
+                        </div>
+                    </div>
                     ${data.report_generated_at ? `
-                        <div style="font-size: 12px; color: #8e8e8e; margin-top: 8px;">
-                            Отчет создан: ${new Date(data.report_generated_at).toLocaleString('ru-RU')}
+                        <div style="font-size: 13px; color: rgba(255,255,255,0.8); margin-top: 8px;">
+                            📅 Отчет создан: ${new Date(data.report_generated_at).toLocaleString('ru-RU')}
                         </div>
                     ` : ''}
                 </div>
             `;
             
-            // Графики метрик
+            // Карточки с основными метриками (улучшенный дизайн)
             html += `
-                <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
-                    <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #ffffff;">📈 Основные метрики</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
-                        <div style="background: #262626; border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 600; color: #0095f6; margin-bottom: 4px;">${formatNumber(profileData.followers || 0)}</div>
-                            <div style="font-size: 12px; color: #8e8e8e;">Подписчики</div>
+                <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
+                    <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 20px; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 24px;">📈</span> Основные метрики
+                    </h3>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                        <div style="background: linear-gradient(135deg, #0095f6 0%, #0066cc 100%); border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 12px rgba(0, 149, 246, 0.3);">
+                            <div style="font-size: 32px; font-weight: 700; color: #ffffff; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">${formatNumber(followers)}</div>
+                            <div style="font-size: 13px; color: rgba(255,255,255,0.9); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Подписчики</div>
                         </div>
-                        <div style="background: #262626; border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 600; color: #ed4956; margin-bottom: 4px;">${profileData.engagement_rate ? (profileData.engagement_rate * 100).toFixed(1) + '%' : 'N/A'}</div>
-                            <div style="font-size: 12px; color: #8e8e8e;">Engagement Rate</div>
+                        <div style="background: linear-gradient(135deg, #ed4956 0%, #c13584 100%); border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 12px rgba(237, 73, 86, 0.3);">
+                            <div style="font-size: 32px; font-weight: 700; color: #ffffff; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">${engagementRate.toFixed(1)}%</div>
+                            <div style="font-size: 13px; color: rgba(255,255,255,0.9); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Engagement Rate</div>
                         </div>
-                        <div style="background: #262626; border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 600; color: #ffffff; margin-bottom: 4px;">${formatNumber(profileData.posts_count || 0)}</div>
-                            <div style="font-size: 12px; color: #8e8e8e;">Публикации</div>
+                        <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);">
+                            <div style="font-size: 32px; font-weight: 700; color: #ffffff; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">${formatNumber(posts)}</div>
+                            <div style="font-size: 13px; color: rgba(255,255,255,0.9); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Публикации</div>
                         </div>
-                        <div style="background: #262626; border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 600; color: #f59e0b; margin-bottom: 4px;">${formatNumber(profileData.views || profileData.screenshot_data?.views || 0)}</div>
-                            <div style="font-size: 12px; color: #8e8e8e;">Просмотры</div>
+                        <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 20px; text-align: center; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);">
+                            <div style="font-size: 32px; font-weight: 700; color: #ffffff; margin-bottom: 8px; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">${formatNumber(views)}</div>
+                            <div style="font-size: 13px; color: rgba(255,255,255,0.9); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">Просмотры</div>
                         </div>
                     </div>
                     
-                    <!-- График Engagement Rate -->
-                    <div style="margin-bottom: 20px;">
-                        <canvas id="engagementChart" style="max-height: 200px;"></canvas>
+                    <!-- Дополнительные метрики -->
+                    ${(interactions > 0 || newFollowers > 0 || shares > 0) ? `
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px;">
+                            ${interactions > 0 ? `
+                                <div style="background: #262626; border-radius: 10px; padding: 16px; text-align: center; border: 1px solid #333;">
+                                    <div style="font-size: 20px; font-weight: 600; color: #8b5cf6; margin-bottom: 4px;">${formatNumber(interactions)}</div>
+                                    <div style="font-size: 11px; color: #8e8e8e; text-transform: uppercase;">Взаимодействия</div>
+                                </div>
+                            ` : ''}
+                            ${newFollowers > 0 ? `
+                                <div style="background: #262626; border-radius: 10px; padding: 16px; text-align: center; border: 1px solid #333;">
+                                    <div style="font-size: 20px; font-weight: 600; color: #06b6d4; margin-bottom: 4px;">+${formatNumber(newFollowers)}</div>
+                                    <div style="font-size: 11px; color: #8e8e8e; text-transform: uppercase;">Новые подписчики</div>
+                                </div>
+                            ` : ''}
+                            ${shares > 0 ? `
+                                <div style="background: #262626; border-radius: 10px; padding: 16px; text-align: center; border: 1px solid #333;">
+                                    <div style="font-size: 20px; font-weight: 600; color: #f97316; margin-bottom: 4px;">${formatNumber(shares)}</div>
+                                    <div style="font-size: 11px; color: #8e8e8e; text-transform: uppercase;">Шаринги</div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    ` : ''}
+                    
+                    <!-- График Engagement Rate (Doughnut) -->
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #ffffff;">Engagement Rate</h4>
+                        <div style="background: #262626; border-radius: 12px; padding: 16px;">
+                            <canvas id="engagementChart" style="max-height: 250px;"></canvas>
+                        </div>
                     </div>
                     
-                    <!-- График роста подписчиков -->
-                    <div style="margin-bottom: 20px;">
-                        <canvas id="growthChart" style="max-height: 200px;"></canvas>
+                    <!-- График роста (Bar) -->
+                    <div style="margin-bottom: 24px;">
+                        <h4 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #ffffff;">Сравнение метрик</h4>
+                        <div style="background: #262626; border-radius: 12px; padding: 16px;">
+                            <canvas id="growthChart" style="max-height: 250px;"></canvas>
+                        </div>
                     </div>
                     
-                    <!-- График активности -->
-                    <div>
-                        <canvas id="activityChart" style="max-height: 200px;"></canvas>
-                    </div>
+                    <!-- График активности (Line) -->
+                    ${(views > 0 || interactions > 0 || newFollowers > 0) ? `
+                        <div style="margin-bottom: 24px;">
+                            <h4 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #ffffff;">Активность за месяц</h4>
+                            <div style="background: #262626; border-radius: 12px; padding: 16px;">
+                                <canvas id="activityChart" style="max-height: 250px;"></canvas>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <!-- График распределения взаимодействий (если есть данные) -->
+                    ${(interactions > 0 && shares > 0 && messages > 0) ? `
+                        <div>
+                            <h4 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #ffffff;">Распределение взаимодействий</h4>
+                            <div style="background: #262626; border-radius: 12px; padding: 16px;">
+                                <canvas id="interactionsChart" style="max-height: 250px;"></canvas>
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             `;
             
@@ -868,13 +935,15 @@
             if (reportText) {
                 const firstSection = extractFirstSection(reportText);
                 html += `
-                    <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
-                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #ffffff;">1. OVERALL ACCOUNT METRICS & PERFORMANCE</h3>
-                        <div id="firstSectionContent" style="color: #ffffff; line-height: 1.6;"></div>
-                        <button class="btn btn-full" onclick="toggleFullReport()" style="margin-top: 16px; background: #0095f6;">
+                    <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); border: 1px solid #262626; border-radius: 16px; padding: 24px; margin-bottom: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
+                        <h3 style="font-size: 22px; font-weight: 700; margin-bottom: 20px; color: #ffffff; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 28px;">🤖</span> 1. OVERALL ACCOUNT METRICS & PERFORMANCE
+                        </h3>
+                        <div id="firstSectionContent" style="color: #ffffff; line-height: 1.8; font-size: 15px;"></div>
+                        <button class="btn btn-full" onclick="toggleFullReport()" style="margin-top: 20px; background: linear-gradient(135deg, #0095f6 0%, #0066cc 100%); border: none; padding: 14px; font-size: 16px; font-weight: 600; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 149, 246, 0.3);">
                             <span id="toggleReportBtn">📖 Показать расширенную информацию</span>
                         </button>
-                        <div id="fullReportContent" style="display: none; margin-top: 20px; color: #ffffff; line-height: 1.6;"></div>
+                        <div id="fullReportContent" style="display: none; margin-top: 24px; color: #ffffff; line-height: 1.8; font-size: 15px; padding-top: 24px; border-top: 1px solid #333;"></div>
                     </div>
                 `;
             }
@@ -935,8 +1004,9 @@
             const interactions = profileData.interactions || profileData.screenshot_data?.interactions || 0;
             const newFollowers = profileData.new_followers || profileData.screenshot_data?.new_followers || 0;
             const shares = profileData.shares || profileData.screenshot_data?.shares || 0;
+            const messages = profileData.messages || profileData.screenshot_data?.messages || 0;
             
-            // График Engagement Rate (Doughnut)
+            // График Engagement Rate (Doughnut) - улучшенный
             const engagementCtx = document.getElementById('engagementChart');
             if (engagementCtx) {
                 new Chart(engagementCtx, {
@@ -955,16 +1025,23 @@
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
+                        cutout: '70%',
                         plugins: {
                             legend: {
                                 display: true,
                                 position: 'bottom',
                                 labels: {
                                     color: '#ffffff',
-                                    font: { size: 12 }
+                                    font: { size: 13, weight: '500' },
+                                    padding: 15,
+                                    usePointStyle: true
                                 }
                             },
                             tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                padding: 12,
+                                titleFont: { size: 14, weight: '600' },
+                                bodyFont: { size: 13 },
                                 callbacks: {
                                     label: function(context) {
                                         return context.label + ': ' + context.parsed.toFixed(1) + '%';
