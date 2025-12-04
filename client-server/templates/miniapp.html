@@ -419,8 +419,9 @@
             document.getElementById('displayUsername').textContent = currentUsername;
             
             // Меняем кнопку "Назад" - если мы пришли со страницы профиля, возвращаемся туда
-            const backButton = document.querySelector('#page2 .back-button');
+            const backButton = document.getElementById('page2BackButton');
             if (backButton) {
+                const originalOnClick = backButton.onclick;
                 backButton.onclick = function() {
                     showPage('page5');
                     // Восстанавливаем детали профиля
@@ -429,6 +430,9 @@
                     } else {
                         viewProfile(currentUsername);
                     }
+                    // Восстанавливаем оригинальный обработчик
+                    backButton.onclick = originalOnClick;
+                    backButton.textContent = '← Назад';
                 };
                 backButton.textContent = '← Назад к профилю';
             }
