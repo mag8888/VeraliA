@@ -144,3 +144,4 @@ MINIAPP_URL=https://client-server-production.up.railway.app/miniapp
 
 После этого бот должен работать!
 
+

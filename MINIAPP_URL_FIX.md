@@ -110,3 +110,4 @@ async def miniapp(request: Request):
 
 После этого мини-приложение должно работать!
 
+

@@ -107,3 +107,4 @@ INFO: Application startup complete.
 
 Ошибка `Could not parse SQLAlchemy URL from string '   '` должна исчезнуть.
 
+

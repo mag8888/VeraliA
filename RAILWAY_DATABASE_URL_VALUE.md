@@ -103,3 +103,4 @@ DATABASE_URL = postgresql://postgres:password@postgres.railway.internal:5432/rai
 **НЕ нужно:**
 - Копировать значение, если можно использовать переменную Railway
 
+

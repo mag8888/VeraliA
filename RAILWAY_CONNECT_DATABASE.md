@@ -109,3 +109,4 @@
 3. ✅ Нужно добавить `DATABASE_URL=${{Postgres.DATABASE_URL}}` в Variables
 4. ✅ Или подключить через Architecture (перетащить стрелку)
 
+

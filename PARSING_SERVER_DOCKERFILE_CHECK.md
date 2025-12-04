@@ -149,3 +149,4 @@ INFO: Application startup complete.
 
 Если проблема повторяется - проверьте, что файл `Dockerfile.parsing` существует в репозитории!
 
+

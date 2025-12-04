@@ -356,3 +356,4 @@ class InstagramReportGenerator:
             return f"{num / 1000:.1f}K".replace('.0', '')
         return str(num)
 
+

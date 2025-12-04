@@ -147,3 +147,4 @@ DATABASE_URL=postgresql://postgres:password@postgres.railway.internal:5432/railw
 
 Попробуйте сначала ссылку, если не работает - используйте прямое значение!
 
+

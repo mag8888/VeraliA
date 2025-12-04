@@ -102,3 +102,4 @@ class InstagramScreenshotService:
         # Это более сложная задача, так как нужен доступ к аккаунту
         raise NotImplementedError("Профессиональная панель требует авторизации в Instagram")
 
+

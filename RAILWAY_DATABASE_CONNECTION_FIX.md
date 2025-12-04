@@ -100,3 +100,4 @@ INFO: Application startup complete.
 - Не должно быть ошибок подключения к базе данных
 - Должно быть сообщение "Database initialized"
 
+
