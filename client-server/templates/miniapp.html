@@ -841,12 +841,40 @@
         let isFullReportVisible = false;
         
         function displayAnalytics(data) {
+            console.log('displayAnalytics вызвана с данными:', data); // Отладка
+            
             const analyticsDiv = document.getElementById('analyticsContent');
             const profileData = data.data || data;
             const report = data.report || {};
             const reportText = report.ru || report.en || '';
+            
+            console.log('profileData:', profileData); // Отладка
+            console.log('report:', report); // Отладка
+            console.log('reportText длина:', reportText.length); // Отладка
+            
             fullReportText = reportText;
             isFullReportVisible = false;
+            
+            // Если нет текста отчета, показываем предупреждение
+            if (!reportText || reportText.trim().length === 0) {
+                analyticsDiv.innerHTML = `
+                    <div class="error" style="padding: 20px; text-align: center;">
+                        <div style="font-size: 24px; margin-bottom: 12px;">⚠️</div>
+                        <h3 style="color: #ffffff; margin-bottom: 8px;">Отчет GPT не найден</h3>
+                        <p style="color: #a8a8a8; margin-bottom: 16px; line-height: 1.6;">
+                            Для этого профиля еще не сгенерирован GPT отчет.<br>
+                            Загрузите скриншот статистики для генерации анализа.
+                        </p>
+                        <button class="btn btn-full" onclick="updateProfileData()" style="background: #0095f6; margin-top: 12px;">
+                            📷 Загрузить скриншот для анализа
+                        </button>
+                        <button class="btn btn-secondary btn-full" onclick="goToProfilesList()" style="margin-top: 8px;">
+                            Назад к списку
+                        </button>
+                    </div>
+                `;
+                return;
+            }
             
             const followers = profileData.followers || 0;
             const following = profileData.following || 0;
