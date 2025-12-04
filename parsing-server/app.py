@@ -474,11 +474,15 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
         dict: Данные пользователя
     """
     try:
+        logger.info(f"Запрос данных для профиля: {username}")
         profile = db.query(InstagramProfile).filter(
             InstagramProfile.username == username
         ).first()
         
+        logger.info(f"Профиль найден: {profile is not None}")
+        
         if not profile:
+            logger.warning(f"Профиль {username} не найден в базе данных")
             raise HTTPException(status_code=404, detail="User not found")
         
         # Формируем базовый словарь с безопасной обработкой всех полей
