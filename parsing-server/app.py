@@ -539,49 +539,25 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Ошибка при формировании данных: {str(e)}")
     
     # Добавляем отчеты из базы (если есть)
-    if profile.report_ru or profile.report_en:
-        profile_dict["report"] = {
-            "ru": profile.report_ru or "",
-            "en": profile.report_en or ""
-        }
-        profile_dict["report_generated_at"] = profile.report_generated_at.isoformat() if profile.report_generated_at else None
-    else:
-        # Генерируем отчет, если его нет в базе
-        try:
-            # Пытаемся сгенерировать через GPT
-            analyzer = get_gpt_analyzer()
-            if analyzer and analyzer.client:
-                try:
-                    gpt_reports = analyzer.generate_report(profile_dict, screenshot_data)
-                except Exception as e:
-                    logger.error(f"Ошибка генерации GPT отчета: {e}")
-                    gpt_reports = {"ru": "", "en": ""}
-            else:
-                gpt_reports = {"ru": "", "en": ""}
-            
-            if gpt_reports.get("ru") or gpt_reports.get("en"):
-                # Сохраняем в базу
-                profile.report_ru = gpt_reports.get("ru")
-                profile.report_en = gpt_reports.get("en")
-                profile.report_generated_at = datetime.utcnow()
-                db.commit()
-                db.refresh(profile)
-                
-                profile_dict["report"] = {
-                    "ru": gpt_reports.get("ru") or "",
-                    "en": gpt_reports.get("en") or ""
-                }
-                profile_dict["report_generated_at"] = profile.report_generated_at.isoformat()
-            else:
-                # GPT недоступен - возвращаем пустой отчет
-                logger.warning(f"GPT недоступен для генерации отчета для {username}")
-                profile_dict["report"] = {
-                    "ru": "",
-                    "en": ""
-                }
-        except Exception as e:
-            logger.error(f"Ошибка генерации отчета: {e}")
-            profile_dict["report"] = {"ru": "", "en": ""}
+    try:
+        if profile.report_ru or profile.report_en:
+            profile_dict["report"] = {
+                "ru": profile.report_ru or "",
+                "en": profile.report_en or ""
+            }
+            profile_dict["report_generated_at"] = profile.report_generated_at.isoformat() if profile.report_generated_at else None
+        else:
+            # Не генерируем отчет автоматически при запросе данных - это может занять много времени
+            # Отчет должен генерироваться только при явном запросе анализа
+            profile_dict["report"] = {
+                "ru": "",
+                "en": ""
+            }
+            profile_dict["report_generated_at"] = None
+    except Exception as e:
+        logger.error(f"Ошибка при обработке отчета для {username}: {e}")
+        profile_dict["report"] = {"ru": "", "en": ""}
+        profile_dict["report_generated_at"] = None
     
     try:
         return profile_dict
