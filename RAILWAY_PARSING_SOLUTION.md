@@ -69,3 +69,4 @@ COPY client-server/requirements.txt .
 - [ ] Builder = Dockerfile
 - [ ] Деплой перезапущен
 
+

@@ -69,3 +69,4 @@ COPY client-server/requirements.txt .
 - [ ] DATABASE_URL установлен ✅
 - [ ] Деплой перезапущен
 
+
