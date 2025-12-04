@@ -586,32 +586,37 @@ async def upload_screenshot_from_miniapp(
             
             logger.info(f"Отправка запроса на парсинг: {parse_url}")
             
-            async with session.post(
-                parse_url,
-                data=data
-            ) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    return JSONResponse({
-                        "success": True,
-                        "message": f"Скриншот {screenshot_type} загружен и обработан",
-                        "data": result
-                    })
-                else:
-                    error_text = await response.text()
-                    logger.error(f"Ошибка парсинга: {error_text}")
-                    
-                    # Пытаемся распарсить JSON ошибки
-                    try:
-                        error_json = await response.json()
-                        error_message = error_json.get('message', error_json.get('detail', error_text))
-                    except:
-                        error_message = error_text
-                    
-                    return JSONResponse(
-                        {"success": False, "error": f"Ошибка обработки: {error_message}"},
-                        status_code=response.status
-                    )
+            # Увеличиваем таймаут для парсинга (может занять время)
+            timeout = aiohttp.ClientTimeout(total=120)  # 2 минуты
+            
+            try:
+                async with session.post(
+                    parse_url,
+                    data=data,
+                    timeout=timeout
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return JSONResponse({
+                            "success": True,
+                            "message": f"Скриншот {screenshot_type} загружен и обработан",
+                            "data": result
+                        })
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"Ошибка парсинга: {error_text}")
+                        
+                        # Пытаемся распарсить JSON ошибки
+                        try:
+                            error_json = await response.json()
+                            error_message = error_json.get('message', error_json.get('detail', error_text))
+                        except:
+                            error_message = error_text
+                        
+                        return JSONResponse(
+                            {"success": False, "error": f"Ошибка обработки: {error_message}"},
+                            status_code=response.status
+                        )
             except aiohttp.ClientError as e:
                 logger.error(f"Ошибка соединения с parsing server: {e}")
                 return JSONResponse(
