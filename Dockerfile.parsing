@@ -40,6 +40,10 @@ WORKDIR /app
 COPY parsing-server/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Установка браузеров Playwright
+RUN playwright install chromium
+RUN playwright install-deps chromium
+
 # Копирование всего содержимого parsing-server
 COPY parsing-server/ ./
 
