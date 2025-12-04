@@ -498,6 +498,83 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+async def profile_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработчик команды /profile - показывает список загруженных профилей"""
+    try:
+        # Получаем список всех профилей из Parsing Server
+        async with aiohttp.ClientSession() as session:
+            users_url = f"{PARSING_SERVER_URL}/api/users"
+            if not users_url.startswith(('http://', 'https://')):
+                users_url = f"https://{users_url}"
+            
+            async with session.get(users_url) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    profiles = data.get('users', [])
+                    
+                    if not profiles:
+                        await update.message.reply_text(
+                            "📭 У вас пока нет загруженных профилей.\n\n"
+                            "Используйте команду /start для начала анализа."
+                        )
+                        return
+                    
+                    # Формируем сообщение со списком профилей
+                    message = f"📊 Ваши профили ({len(profiles)}):\n\n"
+                    
+                    # Создаем кнопки для каждого профиля
+                    keyboard = []
+                    for i, profile in enumerate(profiles[:10], 1):  # Показываем максимум 10 профилей
+                        username = profile.get('username', 'N/A')
+                        followers = profile.get('followers', 0)
+                        posts_count = profile.get('posts_count', 0)
+                        engagement_rate = profile.get('engagement_rate', 0)
+                        
+                        # Форматируем данные
+                        followers_str = f"{followers:,}" if followers < 1000 else f"{followers/1000:.1f}K"
+                        er_str = f"{engagement_rate * 100:.1f}%" if engagement_rate else "N/A"
+                        
+                        message += (
+                            f"{i}. @{username}\n"
+                            f"   👥 {followers_str} • 📸 {posts_count} • 📈 {er_str}\n\n"
+                        )
+                        
+                        # Добавляем кнопку для просмотра профиля
+                        keyboard.append([
+                            InlineKeyboardButton(
+                                f"📊 @{username}",
+                                callback_data=f"view_profile_{username}"
+                            )
+                        ])
+                    
+                    if len(profiles) > 10:
+                        message += f"\n... и еще {len(profiles) - 10} профилей"
+                    
+                    # Добавляем кнопку для открытия мини-приложения
+                    keyboard.append([
+                        InlineKeyboardButton(
+                            "📱 Открыть мини-приложение",
+                            web_app=WebAppInfo(url=MINIAPP_URL)
+                        )
+                    ])
+                    
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
+                    await update.message.reply_text(
+                        message,
+                        reply_markup=reply_markup
+                    )
+                else:
+                    await update.message.reply_text(
+                        "❌ Не удалось загрузить список профилей. Попробуйте позже."
+                    )
+    except Exception as e:
+        logger.error(f"Ошибка при получении списка профилей: {e}")
+        await update.message.reply_text(
+            "❌ Произошла ошибка при загрузке списка профилей."
+        )
+
+
 async def view_profile_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик кнопки просмотра профиля в боте"""
     query = update.callback_query
@@ -553,6 +630,8 @@ async def view_profile_callback(update: Update, context: ContextTypes.DEFAULT_TY
         )
 
 
+telegram_app.add_handler(CommandHandler("start", start_command))
+telegram_app.add_handler(CommandHandler("profile", profile_command))
 telegram_app.add_handler(CallbackQueryHandler(analyze_instagram_callback, pattern="^analyze_instagram$"))
 telegram_app.add_handler(CallbackQueryHandler(upload_main_page_callback, pattern="^upload_main_page$"))
 telegram_app.add_handler(CallbackQueryHandler(upload_stats_callback, pattern="^upload_stats$"))
