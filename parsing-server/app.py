@@ -436,24 +436,15 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
                 }
                 profile_dict["report_generated_at"] = profile.report_generated_at.isoformat()
             else:
-                # Fallback на базовый отчет
-                basic_report = report_generator.generate_report(profile_dict, screenshot_data)
+                # GPT недоступен - возвращаем пустой отчет
+                logger.warning(f"GPT недоступен для генерации отчета для {username}")
                 profile_dict["report"] = {
-                    "ru": basic_report or "",
+                    "ru": "",
                     "en": ""
                 }
         except Exception as e:
             logger.error(f"Ошибка генерации отчета: {e}")
-            # Fallback на базовый отчет
-            try:
-                basic_report = report_generator.generate_report(profile_dict, screenshot_data)
-                profile_dict["report"] = {
-                    "ru": basic_report or "",
-                    "en": ""
-                }
-            except Exception as e2:
-                logger.error(f"Ошибка генерации базового отчета: {e2}")
-                profile_dict["report"] = {"ru": "", "en": ""}
+            profile_dict["report"] = {"ru": "", "en": ""}
     
     return profile_dict
 
