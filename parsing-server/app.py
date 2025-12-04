@@ -178,7 +178,7 @@ async def analyze_instagram(
             
     except Exception as e:
         logger.error(f"Ошибка при анализе: {e}")
-            raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Внутренняя ошибка сервера: {str(e)}")
 
 
 @app.post("/api/screenshot/{username}")
