@@ -480,62 +480,72 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
         
         if not profile:
             raise HTTPException(status_code=404, detail="User not found")
-    except Exception as e:
-        logger.error(f"Ошибка при получении профиля {username}: {e}")
-        raise HTTPException(status_code=500, detail=f"Ошибка при получении данных: {str(e)}")
-    
-    try:
+        
+        # Формируем базовый словарь с безопасной обработкой всех полей
         profile_dict = {
-            "username": profile.username,
-            "followers": profile.followers or 0,
-            "following": profile.following or 0,
-            "posts_count": profile.posts_count or 0,
-            "bio": profile.bio or "",
+            "username": str(profile.username) if profile.username else "",
+            "followers": int(profile.followers) if profile.followers else 0,
+            "following": int(profile.following) if profile.following else 0,
+            "posts_count": int(profile.posts_count) if profile.posts_count else 0,
+            "bio": str(profile.bio) if profile.bio else "",
             "engagement_rate": float(profile.engagement_rate) if profile.engagement_rate is not None and profile.engagement_rate != 0 else None,
-            "analyzed_at": profile.analyzed_at.isoformat() if profile.analyzed_at else None,
-            "created_at": profile.created_at.isoformat() if profile.created_at else None,
-            "updated_at": profile.updated_at.isoformat() if profile.updated_at else None
         }
+        
+        # Добавляем даты с безопасной обработкой
+        try:
+            profile_dict["analyzed_at"] = profile.analyzed_at.isoformat() if profile.analyzed_at else None
+        except:
+            profile_dict["analyzed_at"] = None
+        
+        try:
+            profile_dict["created_at"] = profile.created_at.isoformat() if profile.created_at else None
+        except:
+            profile_dict["created_at"] = None
+        
+        try:
+            profile_dict["updated_at"] = profile.updated_at.isoformat() if profile.updated_at else None
+        except:
+            profile_dict["updated_at"] = None
         
         # Добавляем дополнительные данные из базы
         screenshot_data = {
-            "views": profile.views or 0,
-            "interactions": profile.interactions or 0,
-            "new_followers": profile.new_followers or 0,
-            "messages": profile.messages or 0,
-            "shares": profile.shares or 0
+            "views": int(profile.views) if profile.views else 0,
+            "interactions": int(profile.interactions) if profile.interactions else 0,
+            "new_followers": int(profile.new_followers) if profile.new_followers else 0,
+            "messages": int(profile.messages) if profile.messages else 0,
+            "shares": int(profile.shares) if profile.shares else 0
         }
         profile_dict["screenshot_data"] = screenshot_data
-    except Exception as e:
-        logger.error(f"Ошибка при формировании profile_dict для {username}: {e}")
-        raise HTTPException(status_code=500, detail=f"Ошибка при формировании данных: {str(e)}")
-    
-    # Добавляем отчеты из базы (если есть)
-    try:
-        if profile.report_ru or profile.report_en:
-            profile_dict["report"] = {
-                "ru": profile.report_ru or "",
-                "en": profile.report_en or ""
-            }
-            profile_dict["report_generated_at"] = profile.report_generated_at.isoformat() if profile.report_generated_at else None
-        else:
-            # Не генерируем отчет автоматически при запросе данных - это может занять много времени
-            # Отчет должен генерироваться только при явном запросе анализа
-            profile_dict["report"] = {
-                "ru": "",
-                "en": ""
-            }
+        
+        # Добавляем отчеты из базы (если есть)
+        try:
+            if profile.report_ru or profile.report_en:
+                profile_dict["report"] = {
+                    "ru": str(profile.report_ru) if profile.report_ru else "",
+                    "en": str(profile.report_en) if profile.report_en else ""
+                }
+                try:
+                    profile_dict["report_generated_at"] = profile.report_generated_at.isoformat() if profile.report_generated_at else None
+                except:
+                    profile_dict["report_generated_at"] = None
+            else:
+                profile_dict["report"] = {
+                    "ru": "",
+                    "en": ""
+                }
+                profile_dict["report_generated_at"] = None
+        except Exception as e:
+            logger.warning(f"Ошибка при обработке отчета для {username}: {e}")
+            profile_dict["report"] = {"ru": "", "en": ""}
             profile_dict["report_generated_at"] = None
-    except Exception as e:
-        logger.error(f"Ошибка при обработке отчета для {username}: {e}")
-        profile_dict["report"] = {"ru": "", "en": ""}
-        profile_dict["report_generated_at"] = None
-    
-    try:
+        
         return profile_dict
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Ошибка при возврате данных профиля {username}: {e}")
-        raise HTTPException(status_code=500, detail=f"Ошибка при формировании ответа: {str(e)}")
+        logger.error(f"Критическая ошибка при получении данных профиля {username}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка при получении данных: {str(e)}")
 
 
 @app.get("/api/users")
