@@ -126,52 +126,146 @@ class InstagramScreenshotParser:
                     pass
         
         # Ищем основные числа (подписчики, подписки, публикации)
-        # Ищем паттерны типа "44,5 тыс" или "44500"
-        numbers = []
+        # Сначала ищем конкретно подписчиков, подписки и публикации по контексту
         
-        # Ищем числа с разделителями тысяч
-        number_patterns = [
-            r'(\d+)[,\s]+(\d+)\s*(тыс|k|thousand)',
-            r'(\d+)\s*(тыс|k|thousand)',
-            r'(\d+)[,\s]*(\d+)[,\s]*(\d+)',  # 44,500
-            r'\b(\d{4,})\b'  # Большие числа
+        # Ищем подписчиков (followers) - самый важный показатель
+        followers_patterns = [
+            r'(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)\s*(подписчик|follower|followers)',
+            r'(подписчик|follower|followers)[:\s]+(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)?',
+            r'(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)\s*(followers|подписчик)',
+            r'\b(\d{2,3})\s*(тыс|k|thousand|тысяч)\b',  # 102K, 44K и т.д.
         ]
         
-        for pattern in number_patterns:
-            matches = re.findall(pattern, text, re.IGNORECASE)
+        for pattern in followers_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
             for match in matches:
-                if isinstance(match, tuple):
-                    num_str = ''.join([str(m) for m in match if str(m).isdigit()])
-                else:
-                    num_str = match
-                
-                if num_str and len(num_str) >= 3:
-                    try:
-                        num = int(num_str)
-                        if num > 10:  # Игнорируем маленькие числа
-                            numbers.append(num)
-                    except:
-                        pass
+                try:
+                    num_part = match.group(1) if match.lastindex >= 1 else match.group(2)
+                    suffix = match.group(2) if match.lastindex >= 2 else (match.group(3) if match.lastindex >= 3 else '')
+                    
+                    # Очищаем число от запятых и точек
+                    num_str = num_part.replace(',', '').replace('.', '')
+                    num = float(num_str)
+                    
+                    # Если есть суффикс K/тыс, умножаем на 1000
+                    if suffix and suffix.lower() in ['k', 'тыс', 'thousand', 'тысяч']:
+                        num = int(num * 1000)
+                    else:
+                        num = int(num)
+                    
+                    if num > 1000:  # Минимум 1K подписчиков
+                        data['followers'] = max(data['followers'], num)
+                        logger.info(f"Найдено подписчиков: {num}")
+                        break
+                except Exception as e:
+                    logger.debug(f"Ошибка парсинга подписчиков: {e}")
+                    continue
         
-        # Если не нашли через паттерны, ищем все числа
-        if not numbers:
-            all_numbers = re.findall(r'\d+', text)
-            numbers = [int(n) for n in all_numbers if len(n) >= 3 and int(n) > 10]
+        # Ищем подписки (following)
+        following_patterns = [
+            r'(подписк|following)[:\s]+(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)?',
+            r'(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)?\s*(подписк|following)',
+        ]
         
-        # Сортируем и берем три самых больших
-        if numbers:
-            sorted_numbers = sorted(set(numbers), reverse=True)
+        for pattern in following_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                try:
+                    num_part = match.group(1) if match.lastindex >= 1 else match.group(2)
+                    suffix = match.group(2) if match.lastindex >= 2 else (match.group(3) if match.lastindex >= 3 else '')
+                    
+                    num_str = num_part.replace(',', '').replace('.', '')
+                    num = float(num_str)
+                    
+                    if suffix and suffix.lower() in ['k', 'тыс', 'thousand', 'тысяч']:
+                        num = int(num * 1000)
+                    else:
+                        num = int(num)
+                    
+                    if num > 0 and num != data['followers']:
+                        data['following'] = max(data['following'], num)
+                        logger.info(f"Найдено подписок: {num}")
+                        break
+                except:
+                    continue
+        
+        # Ищем публикации (posts)
+        posts_patterns = [
+            r'(публикац|post|posts)[:\s]+(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)?',
+            r'(\d+[.,]?\d*)\s*(тыс|k|thousand|тысяч)?\s*(публикац|post|posts)',
+            r'\b(\d{1,4})\s*(post|posts|публикац)\b',  # Обычно публикаций меньше 10K
+        ]
+        
+        for pattern in posts_patterns:
+            matches = re.finditer(pattern, text, re.IGNORECASE)
+            for match in matches:
+                try:
+                    num_part = match.group(1) if match.lastindex >= 1 else match.group(2)
+                    suffix = match.group(2) if match.lastindex >= 2 else (match.group(3) if match.lastindex >= 3 else '')
+                    
+                    num_str = num_part.replace(',', '').replace('.', '')
+                    num = float(num_str)
+                    
+                    if suffix and suffix.lower() in ['k', 'тыс', 'thousand', 'тысяч']:
+                        num = int(num * 1000)
+                    else:
+                        num = int(num)
+                    
+                    if num > 0 and num < data['followers']:  # Публикаций обычно меньше подписчиков
+                        data['posts_count'] = max(data['posts_count'], num)
+                        logger.info(f"Найдено публикаций: {num}")
+                        break
+                except:
+                    continue
+        
+        # Если не нашли через контекстные паттерны, используем старый метод
+        if data['followers'] == 0:
+            numbers = []
+            number_patterns = [
+                r'(\d+)[.,]?(\d+)\s*(тыс|k|thousand|тысяч)',
+                r'(\d+)\s*(тыс|k|thousand|тысяч)',
+                r'(\d{2,3})[.,](\d{3})',  # 102,000 или 44,500
+                r'\b(\d{4,})\b'  # Большие числа без форматирования
+            ]
             
-            # Обычно: подписчики > подписки > публикации
-            if len(sorted_numbers) >= 3:
-                data['followers'] = sorted_numbers[0]
-                data['following'] = sorted_numbers[1]
-                data['posts_count'] = sorted_numbers[2]
-            elif len(sorted_numbers) == 2:
-                data['followers'] = sorted_numbers[0]
-                data['following'] = sorted_numbers[1]
-            elif len(sorted_numbers) == 1:
-                data['followers'] = sorted_numbers[0]
+            for pattern in number_patterns:
+                matches = re.findall(pattern, text, re.IGNORECASE)
+                for match in matches:
+                    if isinstance(match, tuple):
+                        # Обрабатываем случаи типа (102, 'K') или (102, 000)
+                        parts = [str(m) for m in match if str(m)]
+                        if len(parts) >= 2:
+                            if parts[-1].lower() in ['k', 'тыс', 'thousand', 'тысяч']:
+                                # Случай "102K"
+                                num = float(parts[0].replace(',', '').replace('.', ''))
+                                num = int(num * 1000)
+                            else:
+                                # Случай "102,000"
+                                num_str = ''.join([p for p in parts if p.isdigit()])
+                                num = int(num_str) if num_str else 0
+                        else:
+                            num_str = ''.join([p for p in parts if p.isdigit()])
+                            num = int(num_str) if num_str else 0
+                    else:
+                        num_str = str(match).replace(',', '').replace('.', '')
+                        num = int(num_str) if num_str.isdigit() else 0
+                    
+                    if num > 1000:
+                        numbers.append(num)
+            
+            # Сортируем и берем самые большие
+            if numbers:
+                sorted_numbers = sorted(set(numbers), reverse=True)
+                
+                if len(sorted_numbers) >= 3:
+                    data['followers'] = sorted_numbers[0] if data['followers'] == 0 else data['followers']
+                    data['following'] = sorted_numbers[1] if data['following'] == 0 else data['following']
+                    data['posts_count'] = sorted_numbers[2] if data['posts_count'] == 0 else data['posts_count']
+                elif len(sorted_numbers) == 2:
+                    data['followers'] = sorted_numbers[0] if data['followers'] == 0 else data['followers']
+                    data['following'] = sorted_numbers[1] if data['following'] == 0 else data['following']
+                elif len(sorted_numbers) == 1:
+                    data['followers'] = sorted_numbers[0] if data['followers'] == 0 else data['followers']
         
         # Пытаемся найти биографию (текст между числами)
         lines = text.split('\n')
