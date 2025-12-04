@@ -434,13 +434,25 @@
         }
         
         function showPage(pageId) {
+            console.log('showPage вызвана с pageId:', pageId); // Отладка
+            
             // Скрываем все страницы
-            document.querySelectorAll('.page').forEach(page => {
+            const allPages = document.querySelectorAll('.page');
+            console.log('Найдено страниц:', allPages.length); // Отладка
+            allPages.forEach(page => {
                 page.classList.remove('active');
             });
             
             // Показываем нужную страницу
-            document.getElementById(pageId).classList.add('active');
+            const targetPage = document.getElementById(pageId);
+            if (!targetPage) {
+                console.error('Страница не найдена:', pageId); // Отладка
+                alert(`Ошибка: страница ${pageId} не найдена`);
+                return;
+            }
+            
+            targetPage.classList.add('active');
+            console.log('Страница', pageId, 'активирована'); // Отладка
         }
         
         async function createAutoScreenshot() {
