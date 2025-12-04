@@ -490,8 +490,6 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-# Регистрация обработчиков
-telegram_app.add_handler(CommandHandler("start", start_command))
 async def view_profile_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик кнопки просмотра профиля в боте"""
     query = update.callback_query
