@@ -163,6 +163,11 @@ telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_
 telegram_app.add_handler(MessageHandler(filters.PHOTO, handle_photo))
 
 
+# FastAPI приложение с lifespan
+app = FastAPI(title="Verali Client Server", lifespan=lifespan)
+templates = Jinja2Templates(directory="templates")
+
+
 # FastAPI маршруты
 @app.get("/", response_class=HTMLResponse)
 async def root():
@@ -215,11 +220,6 @@ async def get_all_users():
     except Exception as e:
         logger.error(f"Error fetching users: {e}")
         return []
-
-
-# FastAPI приложение с lifespan
-app = FastAPI(title="Verali Client Server", lifespan=lifespan)
-templates = Jinja2Templates(directory="templates")
 
 
 if __name__ == "__main__":
