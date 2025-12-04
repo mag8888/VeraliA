@@ -535,6 +535,31 @@
                 
                 const result = await response.json();
                 
+                // Сохраняем данные профиля для последующего сохранения
+                if (result.data && result.data.data) {
+                    // Форматируем данные для сохранения
+                    currentProfileData = {
+                        username: result.data.data.username || currentUsername,
+                        followers: result.data.data.followers || 0,
+                        following: result.data.data.following || 0,
+                        posts_count: result.data.data.posts_count || 0,
+                        engagement_rate: result.data.data.engagement_rate || 0,
+                        bio: result.data.data.bio || '',
+                        analyzed_at: result.data.data.analyzed_at || new Date().toISOString()
+                    };
+                } else {
+                    // Если структура данных другая, пытаемся загрузить с сервера
+                    try {
+                        const dataResponse = await fetch(`/api/data/${encodeURIComponent(currentUsername)}`);
+                        if (dataResponse.ok) {
+                            const data = await dataResponse.json();
+                            currentProfileData = data.data || data;
+                        }
+                    } catch (e) {
+                        console.log('Не удалось загрузить данные автоматически:', e);
+                    }
+                }
+                
                 // Показываем успешное сообщение
                 resultsDiv.innerHTML = `
                     <div style="background: #1a1a1a; border: 1px solid #0095f6; border-radius: 8px; padding: 20px; text-align: center;">
