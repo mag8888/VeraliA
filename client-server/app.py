@@ -713,8 +713,121 @@ async def send_notification(
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+async def process_screenshot_analysis(username: str, screenshot_type: str, file_bytes: bytes, file_path: str = None, cloudinary_url: str = None, user_id: int = None):
+    """Асинхронная обработка скриншота в фоне с отправкой уведомления"""
+    try:
+        # Отправляем на сервер парсинга
+        async with aiohttp.ClientSession() as session:
+            data = aiohttp.FormData()
+            data.add_field('username', username)
+            data.add_field('screenshot_type', screenshot_type)
+            
+            # Используем файл из Cloudinary или локального хранилища
+            if cloudinary_url:
+                data.add_field('screenshot_url', cloudinary_url)
+                data.add_field('screenshot', file_bytes, filename=f'{username}_{screenshot_type}.jpg', content_type='image/jpeg')
+            elif file_path and os.path.exists(file_path):
+                with open(file_path, 'rb') as f:
+                    data.add_field('screenshot', f, filename=f'{username}_{screenshot_type}.jpg')
+            else:
+                data.add_field('screenshot', file_bytes, filename=f'{username}_{screenshot_type}.jpg', content_type='image/jpeg')
+            
+            # Формируем правильный URL для парсинга
+            parse_url = f"{PARSING_SERVER_URL}/api/analyze"
+            if not parse_url.startswith(('http://', 'https://')):
+                parse_url = f"https://{parse_url}"
+            
+            logger.info(f"Начало фоновой обработки для {username}...")
+            
+            # Увеличиваем таймаут для парсинга (может занять время, особенно с GPT)
+            timeout = aiohttp.ClientTimeout(total=300)  # 5 минут для GPT анализа
+            
+            try:
+                async with session.post(
+                    parse_url,
+                    data=data,
+                    timeout=timeout
+                ) as response:
+                    logger.info(f"Получен ответ от Parsing Server: статус {response.status}")
+                    if response.status == 200:
+                        result = await response.json()
+                        logger.info(f"Анализ завершен для {username}")
+                        
+                        # Отправляем уведомление пользователю, если указан user_id
+                        if user_id:
+                            try:
+                                keyboard = [
+                                    [
+                                        InlineKeyboardButton("📱 Посмотреть в приложении", web_app=WebAppInfo(url=MINIAPP_URL)),
+                                        InlineKeyboardButton("📊 Посмотреть в боте", callback_data=f"view_profile_{username}")
+                                    ]
+                                ]
+                                reply_markup = InlineKeyboardMarkup(keyboard)
+                                
+                                await telegram_app.bot.send_message(
+                                    chat_id=user_id,
+                                    text=f"✅ Анализ вашего профиля завершен!\n\n"
+                                         f"📊 Данные сохранены для пользователя: @{username}\n\n"
+                                         f"Откройте мини-приложение или бота для просмотра результатов.",
+                                    reply_markup=reply_markup
+                                )
+                                logger.info(f"Уведомление отправлено пользователю {user_id}")
+                            except Exception as e:
+                                logger.error(f"Ошибка отправки уведомления пользователю {user_id}: {e}")
+                        
+                        return result
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"Ошибка парсинга: {error_text}")
+                        
+                        # Отправляем уведомление об ошибке
+                        if user_id:
+                            try:
+                                await telegram_app.bot.send_message(
+                                    chat_id=user_id,
+                                    text=f"❌ Произошла ошибка при анализе профиля @{username}.\n\n"
+                                         f"Попробуйте загрузить скриншот еще раз."
+                                )
+                            except Exception as e:
+                                logger.error(f"Ошибка отправки уведомления об ошибке: {e}")
+            except asyncio.TimeoutError as e:
+                logger.error(f"Таймаут при обращении к Parsing Server: {e}")
+                if user_id:
+                    try:
+                        await telegram_app.bot.send_message(
+                            chat_id=user_id,
+                            text=f"⏱ Анализ профиля @{username} занимает больше времени, чем ожидалось.\n\n"
+                                 f"Мы продолжим обработку в фоне и отправим уведомление, когда анализ будет завершен."
+                        )
+                    except Exception as e2:
+                        logger.error(f"Ошибка отправки уведомления о таймауте: {e2}")
+            except aiohttp.ClientError as e:
+                logger.error(f"Ошибка соединения с parsing server: {e}")
+                if user_id:
+                    try:
+                        await telegram_app.bot.send_message(
+                            chat_id=user_id,
+                            text=f"❌ Ошибка соединения с сервером анализа.\n\n"
+                                 f"Попробуйте позже."
+                        )
+                    except Exception as e2:
+                        logger.error(f"Ошибка отправки уведомления об ошибке соединения: {e2}")
+    except Exception as e:
+        logger.error(f"Ошибка фоновой обработки скриншота: {e}")
+        if user_id:
+            try:
+                await telegram_app.bot.send_message(
+                    chat_id=user_id,
+                    text=f"❌ Произошла ошибка при обработке скриншота для @{username}.\n\n"
+                         f"Попробуйте загрузить скриншот еще раз."
+                )
+            except Exception as e2:
+                logger.error(f"Ошибка отправки уведомления об ошибке: {e2}")
+
+
 @app.post("/api/upload-screenshot")
 async def upload_screenshot_from_miniapp(
+    background_tasks: BackgroundTasks,
     request: Request,
     username: str = Form(...),
     screenshot_type: str = Form(...),
@@ -751,76 +864,24 @@ async def upload_screenshot_from_miniapp(
             with open(file_path, 'wb') as f:
                 f.write(file_bytes)
         
-        # Отправляем на сервер парсинга
-        async with aiohttp.ClientSession() as session:
-            data = aiohttp.FormData()
-            data.add_field('username', username)
-            data.add_field('screenshot_type', screenshot_type)
-            
-            # Используем файл из Cloudinary или локального хранилища
-            if cloudinary_url:
-                data.add_field('screenshot_url', cloudinary_url)
-                data.add_field('screenshot', file_bytes, filename=f'{username}_{screenshot_type}.jpg', content_type='image/jpeg')
-            elif file_path and os.path.exists(file_path):
-                with open(file_path, 'rb') as f:
-                    data.add_field('screenshot', f, filename=f'{username}_{screenshot_type}.jpg')
-            else:
-                data.add_field('screenshot', file_bytes, filename=f'{username}_{screenshot_type}.jpg', content_type='image/jpeg')
-            
-            # Формируем правильный URL для парсинга
-            parse_url = f"{PARSING_SERVER_URL}/api/analyze"
-            if not parse_url.startswith(('http://', 'https://')):
-                parse_url = f"https://{parse_url}"
-            
-            logger.info(f"Отправка запроса на парсинг: {parse_url}")
-            logger.info(f"PARSING_SERVER_URL из env: {os.getenv('PARSING_SERVER_URL', 'не установлен')}")
-            
-            # Увеличиваем таймаут для парсинга (может занять время)
-            timeout = aiohttp.ClientTimeout(total=120)  # 2 минуты
-            
-            try:
-                logger.info(f"Начало запроса к Parsing Server...")
-                async with session.post(
-                    parse_url,
-                    data=data,
-                    timeout=timeout
-                ) as response:
-                    logger.info(f"Получен ответ от Parsing Server: статус {response.status}")
-                    if response.status == 200:
-                        result = await response.json()
-                        return JSONResponse({
-                            "success": True,
-                            "message": f"Скриншот {screenshot_type} загружен и обработан",
-                            "data": result
-                        })
-                    else:
-                        error_text = await response.text()
-                        logger.error(f"Ошибка парсинга: {error_text}")
-                        
-                        # Пытаемся распарсить JSON ошибки
-                        try:
-                            error_json = await response.json()
-                            error_message = error_json.get('message', error_json.get('detail', error_text))
-                        except:
-                            error_message = error_text
-                        
-                        return JSONResponse(
-                            {"success": False, "error": f"Ошибка обработки: {error_message}"},
-                            status_code=response.status
-                        )
-            except asyncio.TimeoutError as e:
-                logger.error(f"Таймаут при обращении к Parsing Server: {e}")
-                return JSONResponse(
-                    {"success": False, "error": f"Parsing Server не ответил в течение 120 секунд. Проверьте, что сервис запущен и доступен по адресу: {PARSING_SERVER_URL}"},
-                    status_code=504
-                )
-            except aiohttp.ClientError as e:
-                logger.error(f"Ошибка соединения с parsing server: {e}")
-                logger.error(f"URL был: {parse_url}")
-                return JSONResponse(
-                    {"success": False, "error": f"Parsing Server недоступен. Проверьте, что сервис запущен и доступен по адресу: {PARSING_SERVER_URL}"},
-                    status_code=502
-                )
+        # Запускаем обработку в фоне
+        background_tasks.add_task(
+            process_screenshot_analysis,
+            username=username,
+            screenshot_type=screenshot_type,
+            file_bytes=file_bytes,
+            file_path=file_path,
+            cloudinary_url=cloudinary_url,
+            user_id=user_id
+        )
+        
+        # Сразу возвращаем ответ, что файл принят
+        return JSONResponse({
+            "success": True,
+            "message": "Скриншот принят в обработку. Анализ может занять некоторое время.",
+            "processing": True,
+            "username": username
+        })
     
     except Exception as e:
         logger.error(f"Ошибка загрузки скриншота: {e}")
