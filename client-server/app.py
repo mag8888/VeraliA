@@ -919,12 +919,20 @@ async def get_all_users():
             
             async with session.get(users_url) as response:
                 if response.status == 200:
-                    return await response.json()
+                    data = await response.json()
+                    # Обеспечиваем совместимость с форматом {"users": [...]}
+                    if isinstance(data, list):
+                        return {"users": data}
+                    # Если уже есть users, возвращаем как есть
+                    if "users" in data:
+                        return data
+                    # Иначе оборачиваем в users
+                    return {"users": [data] if isinstance(data, dict) else data}
                 else:
-                    return []
+                    return {"users": []}
     except Exception as e:
         logger.error(f"Error fetching users: {e}")
-        return []
+        return {"users": []}
 
 
 if __name__ == "__main__":
