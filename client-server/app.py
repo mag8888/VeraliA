@@ -24,6 +24,10 @@ templates = Jinja2Templates(directory="templates")
 
 # Конфигурация
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+if not TELEGRAM_BOT_TOKEN:
+    logger.error("TELEGRAM_BOT_TOKEN не установлен! Установите переменную окружения в Railway.")
+    raise ValueError("TELEGRAM_BOT_TOKEN обязателен для работы бота")
+
 # Railway автоматически предоставляет PORT через переменную окружения
 PORT = int(os.getenv("PORT", 8000))
 # URL для связи с parsing server (Railway или локальный)
