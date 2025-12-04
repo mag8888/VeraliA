@@ -1695,20 +1695,33 @@
         async function viewExistingProfile() {
             console.log('viewExistingProfile вызвана, existingProfileUsername:', existingProfileUsername); // Отладка
             
-            if (!existingProfileUsername) {
-                const input = document.getElementById('usernameInput').value.trim();
-                existingProfileUsername = extractUsername(input);
-                console.log('Извлечен username из input:', existingProfileUsername); // Отладка
+            // Используем existingProfileUsername, если он установлен, иначе пытаемся извлечь из input
+            let username = existingProfileUsername;
+            
+            if (!username) {
+                const input = document.getElementById('usernameInput');
+                if (input && input.value) {
+                    username = extractUsername(input.value.trim());
+                    console.log('Извлечен username из input:', username); // Отладка
+                }
             }
             
-            if (!existingProfileUsername) {
-                alert('Ошибка: username не найден');
+            if (!username) {
+                console.error('Username не найден'); // Отладка
+                alert('Ошибка: username не найден. Пожалуйста, введите username или URL Instagram.');
                 return;
             }
             
-            currentUsername = existingProfileUsername;
+            currentUsername = username;
+            existingProfileUsername = username; // Сохраняем для будущего использования
             console.log('Установлен currentUsername:', currentUsername); // Отладка
-            await loadReport();
+            
+            try {
+                await loadReport();
+            } catch (error) {
+                console.error('Ошибка при загрузке отчета:', error); // Отладка
+                alert('Ошибка при загрузке аналитики: ' + error.message);
+            }
         }
         
         // При загрузке страницы проверяем наличие сохраненных профилей
