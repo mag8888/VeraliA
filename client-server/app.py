@@ -952,6 +952,36 @@ async def get_user_report(username: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@app.post("/api/analyze-link-only/{username}")
+async def analyze_link_only_endpoint(username: str):
+    """
+    Проксирует запрос на анализ профиля только по ссылке (без скриншота) к parsing-server
+    """
+    async with aiohttp.ClientSession() as session:
+        try:
+            analyze_url = f"{PARSING_SERVER_URL}/api/analyze-link-only/{username}"
+            if not analyze_url.startswith(('http://', 'https://')):
+                analyze_url = f"https://{analyze_url}"
+            
+            logger.info(f"Запрос на анализ только по ссылке: {analyze_url}")
+            
+            timeout = aiohttp.ClientTimeout(total=180)  # 3 минуты для GPT анализа
+            async with session.post(analyze_url, timeout=timeout) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return JSONResponse(content=data)
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Ошибка от parsing server: {response.status} - {error_text}")
+                    raise HTTPException(status_code=response.status, detail=error_text)
+        except aiohttp.ClientError as e:
+            logger.error(f"Ошибка соединения с parsing server: {e}")
+            raise HTTPException(status_code=503, detail=f"Parsing Server недоступен: {str(e)}")
+        except Exception as e:
+            logger.error(f"Ошибка при анализе профиля: {e}")
+            raise HTTPException(status_code=500, detail=f"Ошибка: {str(e)}")
+
+
 @app.post("/api/create-screenshot/{username}")
 async def create_screenshot_endpoint(username: str):
     """
