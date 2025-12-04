@@ -474,7 +474,9 @@ async def get_all_users(db: Session = Depends(get_db)):
                 "messages": p.messages,
                 "shares": p.shares,
                 "analyzed_at": p.analyzed_at.isoformat() if p.analyzed_at else None,
-                "updated_at": p.updated_at.isoformat() if p.updated_at else None
+                "updated_at": p.updated_at.isoformat() if p.updated_at else None,
+                "has_gpt_report": bool(p.report_ru or p.report_en),
+                "report_generated_at": p.report_generated_at.isoformat() if p.report_generated_at else None
             }
             for p in profiles
         ]
