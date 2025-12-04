@@ -473,22 +473,23 @@
                 return;
             }
             
+            // Получаем username бота из шаблона
+            const botUsername = '{{ bot_username }}' || 'VeraliA_bot';
+            
             // Открываем бота в Telegram
             if (window.Telegram && window.Telegram.WebApp) {
                 const tg = window.Telegram.WebApp;
                 
-                // Отправляем сообщение боту через Telegram
-                const message = type === 'main_page' 
-                    ? `📱 Загрузить главную страницу для ${username}`
-                    : `📊 Загрузить статистику для ${username}`;
+                // Формируем команду для бота
+                const command = `upload_${type}_${username}`;
                 
-                // Используем Telegram Bot API для отправки сообщения
-                tg.openLink(`https://t.me/${tg.initDataUnsafe.user?.username || 'your_bot_username'}?start=upload_${type}_${username}`);
+                // Открываем бота с командой через Telegram
+                tg.openTelegramLink(`https://t.me/${botUsername}?start=${command}`);
             } else {
                 // Если не в Telegram WebApp, показываем инструкцию
                 const instruction = type === 'main_page'
-                    ? `Откройте бота в Telegram и отправьте:\n1. Username: ${username}\n2. Выберите "📱 Главная страница"\n3. Отправьте скриншот`
-                    : `Откройте бота в Telegram и отправьте:\n1. Username: ${username}\n2. Выберите "📊 Статистика"\n3. Отправьте скриншот`;
+                    ? `Откройте бота в Telegram (@${botUsername}) и отправьте:\n1. Username: ${username}\n2. Выберите "📱 Главная страница"\n3. Отправьте скриншот`
+                    : `Откройте бота в Telegram (@${botUsername}) и отправьте:\n1. Username: ${username}\n2. Выберите "📊 Статистика"\n3. Отправьте скриншот`;
                 
                 alert(instruction);
             }
