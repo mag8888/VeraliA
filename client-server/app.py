@@ -1,5 +1,6 @@
 import os
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File, Form
@@ -585,16 +586,19 @@ async def upload_screenshot_from_miniapp(
                 parse_url = f"https://{parse_url}"
             
             logger.info(f"Отправка запроса на парсинг: {parse_url}")
+            logger.info(f"PARSING_SERVER_URL из env: {os.getenv('PARSING_SERVER_URL', 'не установлен')}")
             
             # Увеличиваем таймаут для парсинга (может занять время)
             timeout = aiohttp.ClientTimeout(total=120)  # 2 минуты
             
             try:
+                logger.info(f"Начало запроса к Parsing Server...")
                 async with session.post(
                     parse_url,
                     data=data,
                     timeout=timeout
                 ) as response:
+                    logger.info(f"Получен ответ от Parsing Server: статус {response.status}")
                     if response.status == 200:
                         result = await response.json()
                         return JSONResponse({
@@ -617,8 +621,15 @@ async def upload_screenshot_from_miniapp(
                             {"success": False, "error": f"Ошибка обработки: {error_message}"},
                             status_code=response.status
                         )
+            except asyncio.TimeoutError as e:
+                logger.error(f"Таймаут при обращении к Parsing Server: {e}")
+                return JSONResponse(
+                    {"success": False, "error": f"Parsing Server не ответил в течение 120 секунд. Проверьте, что сервис запущен и доступен по адресу: {PARSING_SERVER_URL}"},
+                    status_code=504
+                )
             except aiohttp.ClientError as e:
                 logger.error(f"Ошибка соединения с parsing server: {e}")
+                logger.error(f"URL был: {parse_url}")
                 return JSONResponse(
                     {"success": False, "error": f"Parsing Server недоступен. Проверьте, что сервис запущен и доступен по адресу: {PARSING_SERVER_URL}"},
                     status_code=502
