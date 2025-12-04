@@ -453,7 +453,18 @@ async def root():
 @app.get("/miniapp", response_class=HTMLResponse)
 async def miniapp(request: Request):
     """Мини-приложение для отображения данных"""
-    return templates.TemplateResponse("miniapp.html", {"request": request})
+    # Получаем username бота через API
+    try:
+        bot_info = await telegram_app.bot.get_me()
+        bot_username = bot_info.username
+    except Exception as e:
+        logger.error(f"Ошибка получения username бота: {e}")
+        bot_username = BOT_USERNAME
+    
+    return templates.TemplateResponse("miniapp.html", {
+        "request": request,
+        "bot_username": bot_username
+    })
 
 
 @app.get("/api/data/{username}")
