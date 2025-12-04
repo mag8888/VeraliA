@@ -164,6 +164,9 @@ class InstagramScreenshotParser:
                         data['followers'] = max(data['followers'], num)
                         logger.info(f"Найдено подписчиков: {num}")
                         break
+                except Exception as e:
+                    logger.debug(f"Ошибка парсинга подписчиков: {e}")
+                    continue
         
         # Если не нашли через основные паттерны, ищем через контекстные
         if data['followers'] == 0:
