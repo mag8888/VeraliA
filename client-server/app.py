@@ -901,14 +901,52 @@ async def get_user_data(username: str):
             if not data_url.startswith(('http://', 'https://')):
                 data_url = f"https://{data_url}"
             
-            async with session.get(data_url) as response:
+            logger.info(f"Проксирование запроса к parsing-server: {data_url}")
+            
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with session.get(data_url, timeout=timeout) as response:
                 if response.status == 200:
-                    return await response.json()
+                    data = await response.json()
+                    logger.info(f"Данные получены для {username}")
+                    return JSONResponse(content=data)
+                elif response.status == 404:
+                    # Профиль не найден - возвращаем пустые данные
+                    logger.warning(f"Профиль {username} не найден")
+                    return JSONResponse(content={
+                        "username": username,
+                        "followers": 0,
+                        "following": 0,
+                        "posts_count": 0,
+                        "bio": "",
+                        "engagement_rate": None,
+                        "analyzed_at": None,
+                        "created_at": None,
+                        "updated_at": None,
+                        "screenshot_data": {
+                            "views": 0,
+                            "interactions": 0,
+                            "new_followers": 0,
+                            "messages": 0,
+                            "shares": 0
+                        },
+                        "report": {
+                            "ru": "",
+                            "en": ""
+                        },
+                        "report_generated_at": None
+                    })
                 else:
-                    raise HTTPException(status_code=404, detail="User not found")
+                    error_text = await response.text()
+                    logger.error(f"Ошибка от parsing server: {response.status} - {error_text}")
+                    raise HTTPException(status_code=response.status, detail=error_text)
+    except aiohttp.ClientError as e:
+        logger.error(f"Ошибка соединения с parsing server: {e}")
+        raise HTTPException(status_code=503, detail=f"Parsing Server недоступен: {str(e)}")
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error fetching data: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
+        logger.error(f"Ошибка при получении данных: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Ошибка: {str(e)}")
 
 
 @app.delete("/api/delete-all-profiles")
