@@ -421,10 +421,17 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # Отправляем байты напрямую
                 data.add_field('screenshot', file_bytes, filename=f'{username}.jpg', content_type='image/jpeg')
                 
+            # Формируем правильный URL для парсинга
+            parse_url = f"{PARSING_SERVER_URL}/api/analyze"
+            if not parse_url.startswith(('http://', 'https://')):
+                parse_url = f"https://{parse_url}"
+            
+            logger.info(f"Отправка запроса на парсинг: {parse_url}")
+            
             async with session.post(
-                    f"{PARSING_SERVER_URL}/api/analyze",
-                    data=data
-                ) as response:
+                parse_url,
+                data=data
+            ) as response:
                     if response.status == 200:
                         result = await response.json()
                         screenshot_type_name = "главной страницы" if screenshot_type == 'main_page' else "статистики"
@@ -587,9 +594,12 @@ async def get_user_data(username: str):
     """Получение данных пользователя из базы"""
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(
-                f"{PARSING_SERVER_URL}/api/data/{username}"
-            ) as response:
+            # Формируем правильный URL
+            data_url = f"{PARSING_SERVER_URL}/api/data/{username}"
+            if not data_url.startswith(('http://', 'https://')):
+                data_url = f"https://{data_url}"
+            
+            async with session.get(data_url) as response:
                 if response.status == 200:
                     return await response.json()
                 else:
@@ -604,7 +614,12 @@ async def get_all_users():
     """Получение списка всех пользователей"""
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(f"{PARSING_SERVER_URL}/api/users") as response:
+            # Формируем правильный URL
+            users_url = f"{PARSING_SERVER_URL}/api/users"
+            if not users_url.startswith(('http://', 'https://')):
+                users_url = f"https://{users_url}"
+            
+            async with session.get(users_url) as response:
                 if response.status == 200:
                     return await response.json()
                 else:
