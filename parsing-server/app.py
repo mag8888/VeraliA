@@ -491,7 +491,7 @@ async def get_user_data(username: str, db: Session = Depends(get_db)):
             "following": profile.following or 0,
             "posts_count": profile.posts_count or 0,
             "bio": profile.bio or "",
-            "engagement_rate": float(profile.engagement_rate) if profile.engagement_rate else None,
+            "engagement_rate": float(profile.engagement_rate) if profile.engagement_rate is not None and profile.engagement_rate != 0 else None,
             "analyzed_at": profile.analyzed_at.isoformat() if profile.analyzed_at else None,
             "created_at": profile.created_at.isoformat() if profile.created_at else None,
             "updated_at": profile.updated_at.isoformat() if profile.updated_at else None
