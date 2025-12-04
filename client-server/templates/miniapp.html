@@ -343,11 +343,7 @@
                 </div>
             </div>
             
-            <!-- Страница 5: Детальный просмотр профиля -->
-            <div id="page5" class="page">
-                <button class="back-button" onclick="goToProfilesList()">← Назад к списку</button>
-                <div id="profileDetails"></div>
-            </div>
+            <!-- Страница 5: Удалена - теперь сразу переходим к аналитике -->
         </div>
     </div>
     
@@ -437,13 +433,8 @@
                 const originalOnClick = backButton.onclick;
                 backButton.onclick = function() {
                     cameFromProfilePage = false; // Сбрасываем флаг
-                    showPage('page5');
-                    // Восстанавливаем детали профиля
-                    if (currentProfileData) {
-                        displayProfileDetails(currentProfileData);
-                    } else {
-                        viewProfile(currentUsername);
-                    }
+                    // Сразу переходим к аналитике
+                    loadReport();
                     // Восстанавливаем оригинальный обработчик
                     backButton.onclick = originalOnClick;
                     backButton.textContent = '← Назад';
@@ -712,7 +703,7 @@
                         <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
                         <h3 style="color: #ffffff; margin-bottom: 8px; font-size: 18px;">${cameFromProfile ? 'Данные обновлены!' : 'Скриншот загружен!'}</h3>
                         <p style="color: #a8a8a8; margin-bottom: 16px;">Данные для пользователя <strong>${currentUsername}</strong> ${cameFromProfile ? 'успешно обновлены' : 'сохранены'}</p>
-                        <button class="btn btn-full" onclick="${cameFromProfile ? `viewProfile('${currentUsername}'); cameFromProfilePage = false;` : 'loadUserData()'}" style="margin-top: 12px;">
+                        <button class="btn btn-full" onclick="loadReport()" style="margin-top: 12px;">
                             ${cameFromProfile ? 'Просмотреть обновленные данные' : 'Просмотреть данные'}
                         </button>
                         <div class="button-group" style="margin-top: 12px;">
@@ -721,8 +712,8 @@
                             </button>
                         </div>
                         ${cameFromProfile ? `
-                            <button class="btn btn-secondary btn-full" onclick="viewProfile('${currentUsername}'); cameFromProfilePage = false;" style="margin-top: 8px;">
-                                Вернуться к профилю
+                            <button class="btn btn-secondary btn-full" onclick="loadReport(); cameFromProfilePage = false;" style="margin-top: 8px;">
+                                Вернуться к аналитике
                             </button>
                         ` : `
                             <button class="btn btn-secondary btn-full" onclick="goBackToPage1()" style="margin-top: 8px;">
@@ -783,61 +774,8 @@
         
         async function displayUserData(data) {
             currentProfileData = data;
-            const resultsDiv = document.getElementById('results');
-            
-            // Показываем базовые данные
-            let html = `
-                <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
-                    <div style="font-size: 20px; font-weight: 600; margin-bottom: 16px; color: #ffffff;">${data.username}</div>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value">${formatNumber(data.followers || 0)}</div>
-                            <div class="stat-label">Подписчики</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${formatNumber(data.following || 0)}</div>
-                            <div class="stat-label">Подписки</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${formatNumber(data.posts_count || 0)}</div>
-                            <div class="stat-label">Публикации</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${data.engagement_rate ? (data.engagement_rate * 100).toFixed(1) + '%' : 'N/A'}</div>
-                            <div class="stat-label">Engagement Rate</div>
-                        </div>
-                    </div>
-                    ${data.bio ? `
-                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #262626;">
-                            <div style="font-size: 12px; color: #8e8e8e; margin-bottom: 8px;">Биография</div>
-                            <div style="font-size: 14px; color: #ffffff; line-height: 1.5;">${data.bio}</div>
-                        </div>
-                    ` : ''}
-                    ${data.analyzed_at ? `
-                        <div style="margin-top: 16px; text-align: center; color: #8e8e8e; font-size: 12px;">
-                            Обновлено: ${new Date(data.analyzed_at).toLocaleString('ru-RU')}
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="button-group" style="margin-top: 16px;">
-                    <button class="btn btn-full" onclick="loadReport()" style="background: #0095f6;">
-                        📊 Детальный отчет
-                    </button>
-                </div>
-                <div class="button-group" style="margin-top: 8px;">
-                    <button class="btn btn-full" onclick="saveProfile()" style="background: #ed4956; border: 1px solid #ed4956;">
-                        Сохранить
-                    </button>
-                </div>
-                <div class="button-group" style="margin-top: 16px;">
-                    <button class="btn btn-full" onclick="loadReport()" style="background: #0095f6;">
-                        📊 Показать детальный отчет
-                    </button>
-                </div>
-                <button class="btn btn-secondary btn-full" onclick="goBackToPage1()" style="margin-top: 8px;">
-                    Загрузить другой профиль
-                </button>
-            `;
+            // Сразу переходим к аналитике
+            loadReport();
         }
         
         async function loadReport() {
@@ -880,8 +818,8 @@
                     <div class="error">
                         <div style="font-size: 24px; margin-bottom: 8px;">❌</div>
                         <div>Ошибка: ${error.message}</div>
-                        <button class="btn btn-secondary btn-full" onclick="viewProfile('${currentUsername}')" style="margin-top: 16px;">
-                            Назад к профилю
+                        <button class="btn btn-secondary btn-full" onclick="goToProfilesList()" style="margin-top: 16px;">
+                            Назад к списку
                         </button>
                     </div>
                 `;
@@ -1450,87 +1388,8 @@
         
         async function viewProfile(username) {
             currentUsername = username;
-            showPage('page5');
-            
-            const profileDetailsDiv = document.getElementById('profileDetails');
-            profileDetailsDiv.innerHTML = '<div class="loading">Загрузка профиля...</div>';
-            
-            try {
-                // Сначала пытаемся загрузить с сервера
-                const response = await fetch(`/api/data/${encodeURIComponent(username)}`);
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    currentProfileData = data;
-                    displayProfileDetails(data);
-                } else {
-                    // Если нет на сервере, ищем в localStorage
-                    const savedProfiles = JSON.parse(localStorage.getItem('savedProfiles') || '[]');
-                    const profile = savedProfiles.find(p => p.username === username);
-                    
-                    if (profile) {
-                        currentProfileData = profile;
-                        displayProfileDetails(profile);
-                    } else {
-                        profileDetailsDiv.innerHTML = `
-                            <div class="empty-state">
-                                <div class="empty-state-icon">📭</div>
-                                <h3>Профиль не найден</h3>
-                                <p>Профиль <strong>${username}</strong> не найден</p>
-                                <button class="btn btn-full" onclick="goToProfilesList()" style="margin-top: 16px;">
-                                    Назад к списку
-                                </button>
-                            </div>
-                        `;
-                    }
-                }
-            } catch (error) {
-                profileDetailsDiv.innerHTML = `<div class="error">❌ Ошибка: ${error.message}</div>`;
-            }
-        }
-        
-        function displayProfileDetails(data) {
-            const profileDetailsDiv = document.getElementById('profileDetails');
-            
-            profileDetailsDiv.innerHTML = `
-                <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
-                    <div style="font-size: 24px; font-weight: 600; margin-bottom: 20px; color: #ffffff;">${data.username}</div>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value">${formatNumber(data.followers || 0)}</div>
-                            <div class="stat-label">Подписчики</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${formatNumber(data.following || 0)}</div>
-                            <div class="stat-label">Подписки</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value">${formatNumber(data.posts_count || 0)}</div>
-                            <div class="stat-label">Публикации</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" style="background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">${data.engagement_rate ? (data.engagement_rate * 100).toFixed(1) + '%' : 'N/A'}</div>
-                            <div class="stat-label">Engagement Rate</div>
-                        </div>
-                    </div>
-                    ${data.bio ? `
-                        <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #262626;">
-                            <div style="font-size: 12px; color: #8e8e8e; margin-bottom: 8px;">Биография</div>
-                            <div style="font-size: 14px; color: #ffffff; line-height: 1.5;">${data.bio}</div>
-                        </div>
-                    ` : ''}
-                    ${data.analyzed_at ? `
-                        <div style="margin-top: 16px; text-align: center; color: #8e8e8e; font-size: 12px;">
-                            Обновлено: ${new Date(data.analyzed_at).toLocaleString('ru-RU')}
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="button-group">
-                    <button class="btn btn-full" onclick="updateProfileData()">
-                        📷 Обновить данные
-                    </button>
-                </div>
-            `;
+            // Сразу переходим к аналитике
+            loadReport();
         }
         
         // Автозагрузка при Enter на странице 1
