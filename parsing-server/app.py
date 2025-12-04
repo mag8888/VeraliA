@@ -1,5 +1,6 @@
 import os
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -19,22 +20,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# FastAPI приложение
-app = FastAPI(title="Verali Parsing Server")
+# Инициализация парсера
+parser = InstagramScreenshotParser()
 
 # Конфигурация
 PORT = int(os.getenv("PORT", 8001))
 UPLOAD_DIR = "uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Инициализация парсера
-parser = InstagramScreenshotParser()
 
-# Инициализация базы данных при старте
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
     init_db()
     logger.info("Database initialized")
+    yield
+    # Shutdown (если нужно что-то сделать при остановке)
+
+
+# FastAPI приложение
+app = FastAPI(title="Verali Parsing Server", lifespan=lifespan)
 
 
 @app.get("/")
