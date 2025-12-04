@@ -1,17 +1,16 @@
-# Dockerfile в корне для теста
-# Этот файл создан для диагностики проблемы Railway
-# Обычно используется Dockerfile из client-server/ или parsing-server/
+# Dockerfile в корне для Client Server
+# Используется когда Root Directory не установлен
 
 FROM python:3.11-slim
 
 WORKDIR /app
 
-# Копирование и установка зависимостей
-COPY client-server/requirements.txt .
+# Копирование requirements.txt из client-server
+COPY client-server/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копирование кода приложения
-COPY client-server/ .
+# Копирование всего содержимого client-server
+COPY client-server/ ./
 
 # Создание директории для загрузок
 RUN mkdir -p uploads
