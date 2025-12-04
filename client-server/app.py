@@ -548,8 +548,15 @@ async def upload_screenshot_from_miniapp(
             else:
                 data.add_field('screenshot', file_bytes, filename=f'{username}_{screenshot_type}.jpg', content_type='image/jpeg')
             
+            # Формируем правильный URL для парсинга
+            parse_url = f"{PARSING_SERVER_URL}/api/analyze"
+            if not parse_url.startswith(('http://', 'https://')):
+                parse_url = f"https://{parse_url}"
+            
+            logger.info(f"Отправка запроса на парсинг: {parse_url}")
+            
             async with session.post(
-                f"{PARSING_SERVER_URL}/api/analyze",
+                parse_url,
                 data=data
             ) as response:
                 if response.status == 200:
