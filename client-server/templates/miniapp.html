@@ -390,28 +390,32 @@
         let selectedAnalysisType = 'link-only'; // По умолчанию анализ только по ссылке
         
         function selectAnalysisType(type) {
-            selectedAnalysisType = type;
-            
-            // Обновляем визуальное выделение
-            const linkOnlyLabel = document.querySelector('label[onclick="selectAnalysisType(\'link-only\')"]');
-            const fullLabel = document.querySelector('label[onclick="selectAnalysisType(\'full\')"]');
-            const linkOnlyRadio = document.getElementById('analysisTypeLinkOnly');
-            const fullRadio = document.getElementById('analysisTypeFull');
-            
-            if (!linkOnlyLabel || !fullLabel || !linkOnlyRadio || !fullRadio) {
-                return; // Элементы не найдены, выходим
-            }
-            
-            if (type === 'link-only') {
-                linkOnlyLabel.style.border = '2px solid #0095f6';
-                fullLabel.style.border = '2px solid transparent';
-                linkOnlyRadio.checked = true;
-                fullRadio.checked = false;
-            } else {
-                linkOnlyLabel.style.border = '2px solid transparent';
-                fullLabel.style.border = '2px solid #0095f6';
-                linkOnlyRadio.checked = false;
-                fullRadio.checked = true;
+            try {
+                selectedAnalysisType = type;
+                
+                // Обновляем визуальное выделение
+                const linkOnlyLabel = document.querySelector('label[onclick="selectAnalysisType(\'link-only\')"]');
+                const fullLabel = document.querySelector('label[onclick="selectAnalysisType(\'full\')"]');
+                const linkOnlyRadio = document.getElementById('analysisTypeLinkOnly');
+                const fullRadio = document.getElementById('analysisTypeFull');
+                
+                if (!linkOnlyLabel || !fullLabel || !linkOnlyRadio || !fullRadio) {
+                    return; // Элементы не найдены, выходим
+                }
+                
+                if (type === 'link-only') {
+                    linkOnlyLabel.style.border = '2px solid #0095f6';
+                    fullLabel.style.border = '2px solid transparent';
+                    linkOnlyRadio.checked = true;
+                    fullRadio.checked = false;
+                } else {
+                    linkOnlyLabel.style.border = '2px solid transparent';
+                    fullLabel.style.border = '2px solid #0095f6';
+                    linkOnlyRadio.checked = false;
+                    fullRadio.checked = true;
+                }
+            } catch (error) {
+                console.error('Ошибка в selectAnalysisType:', error);
             }
         }
         
