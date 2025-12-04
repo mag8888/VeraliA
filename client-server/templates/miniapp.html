@@ -1239,53 +1239,87 @@
             const reportDiv = document.getElementById(targetId);
             if (!reportDiv) return;
             
-            // Разбиваем отчет на строки для более точного форматирования
-            const lines = reportText.split('\n');
+            // Разбиваем отчет на параграфы для лучшей читаемости
+            const paragraphs = reportText.split(/\n\n+/);
             let html = '';
             
-            lines.forEach(line => {
-                if (line.trim()) {
-                    let formattedLine = line;
+            paragraphs.forEach(paragraph => {
+                if (paragraph.trim()) {
+                    let formattedParagraph = paragraph.trim();
                     
                     // Заголовки секций (1., 2., 3. и т.д.)
-                    formattedLine = formattedLine.replace(/^(\d+)\.\s+(.+)$/gm, '<h3 style="color: #0095f6; margin-top: 20px; margin-bottom: 12px; font-size: 18px; font-weight: 600;">$1. $2</h3>');
-                    
-                    // Подзаголовки (Followers:, Posts: и т.д.)
-                    formattedLine = formattedLine.replace(/^([A-Z][^:]+):\s*(.+)$/gm, '<div style="margin: 12px 0;"><strong style="color: #0095f6;">$1:</strong> <span style="color: #ffffff;">$2</span></div>');
-                    
-                    // Списки с галочками (✔)
-                    formattedLine = formattedLine.replace(/^✔\s+(.+)$/gm, '<div style="color: #0095f6; margin: 6px 0; padding-left: 8px;">✔ $1</div>');
-                    
-                    // Списки с звездочками (🌟)
-                    formattedLine = formattedLine.replace(/^🌟\s+(\d+)\.\s+(.+)$/gm, '<div style="color: #f59e0b; margin: 8px 0; padding-left: 8px; font-weight: 600;">🌟 $1. $2</div>');
-                    
-                    // Эмодзи заголовки (🔥, 📈, 💰)
-                    formattedLine = formattedLine.replace(/^([🔥📈💰])\s+(.+)$/gm, '<h4 style="color: #f59e0b; margin-top: 16px; margin-bottom: 8px; font-size: 16px; font-weight: 600;">$1 $2</h4>');
-                    
-                    // Нумерованные списки (1. 2. 3.)
-                    if (!formattedLine.match(/^<h3/)) {
-                        formattedLine = formattedLine.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="margin: 6px 0; padding-left: 16px; color: #ffffff;">$1. $2</div>');
+                    if (formattedParagraph.match(/^\d+\.\s+[A-Z]/)) {
+                        formattedParagraph = formattedParagraph.replace(/^(\d+)\.\s+(.+)$/m, '<h3 style="color: #0095f6; margin-top: 24px; margin-bottom: 16px; font-size: 20px; font-weight: 700; line-height: 1.4;">$1. $2</h3>');
+                        html += formattedParagraph;
+                        return;
                     }
                     
-                    // Маркированные списки (- или •)
-                    formattedLine = formattedLine.replace(/^[-•]\s+(.+)$/gm, '<div style="margin: 4px 0; padding-left: 16px; color: #ffffff;">• $1</div>');
-                    
-                    // Жирный текст (**text**)
-                    formattedLine = formattedLine.replace(/\*\*(.+?)\*\*/g, '<strong style="color: #ffffff; font-weight: 600;">$1</strong>');
-                    
-                    // Курсив (*text*)
-                    formattedLine = formattedLine.replace(/\*(.+?)\*/g, '<em style="color: #a8a8a8;">$1</em>');
-                    
-                    // Если строка не была преобразована в HTML, добавляем как обычный текст
-                    if (!formattedLine.match(/^<[h|d|s]/)) {
-                        formattedLine = `<div style="color: #ffffff; line-height: 1.7; margin-bottom: 8px;">${formattedLine}</div>`;
+                    // Эмодзи заголовки (🔥, 📈, 💰, 🌟)
+                    if (formattedParagraph.match(/^[🔥📈💰🌟]/)) {
+                        formattedParagraph = formattedParagraph.replace(/^([🔥📈💰🌟])\s+(.+)$/m, '<h4 style="color: #f59e0b; margin-top: 20px; margin-bottom: 12px; font-size: 18px; font-weight: 600; line-height: 1.4;">$1 $2</h4>');
+                        html += formattedParagraph;
+                        return;
                     }
                     
-                    html += formattedLine;
+                    // Разбиваем на строки для обработки списков
+                    const lines = formattedParagraph.split('\n');
+                    let paragraphHtml = '';
+                    
+                    lines.forEach(line => {
+                        if (line.trim()) {
+                            let formattedLine = line.trim();
+                            
+                            // Подзаголовки (Followers:, Posts: и т.д.)
+                            if (formattedLine.match(/^[A-Z][^:]+:\s/)) {
+                                formattedLine = formattedLine.replace(/^([A-Z][^:]+):\s*(.+)$/, '<div style="margin: 14px 0;"><strong style="color: #0095f6; font-size: 16px; font-weight: 600;">$1:</strong> <span style="color: #ffffff; font-size: 15px;">$2</span></div>');
+                                paragraphHtml += formattedLine;
+                                return;
+                            }
+                            
+                            // Списки с галочками (✔)
+                            if (formattedLine.match(/^✔\s/)) {
+                                formattedLine = formattedLine.replace(/^✔\s+(.+)$/, '<div style="color: #10b981; margin: 10px 0; padding-left: 24px; font-size: 15px; line-height: 1.6;">✔ <span style="color: #ffffff;">$1</span></div>');
+                                paragraphHtml += formattedLine;
+                                return;
+                            }
+                            
+                            // Списки с звездочками (🌟)
+                            if (formattedLine.match(/^🌟\s+\d+\./)) {
+                                formattedLine = formattedLine.replace(/^🌟\s+(\d+)\.\s+(.+)$/, '<div style="color: #f59e0b; margin: 12px 0; padding-left: 24px; font-size: 15px; font-weight: 600; line-height: 1.6;">🌟 <span style="color: #ffffff;">$1. $2</span></div>');
+                                paragraphHtml += formattedLine;
+                                return;
+                            }
+                            
+                            // Нумерованные списки (1. 2. 3.)
+                            if (formattedLine.match(/^\d+\.\s/)) {
+                                formattedLine = formattedLine.replace(/^(\d+)\.\s+(.+)$/, '<div style="margin: 10px 0; padding-left: 24px; color: #ffffff; font-size: 15px; line-height: 1.6;">$1. $2</div>');
+                                paragraphHtml += formattedLine;
+                                return;
+                            }
+                            
+                            // Маркированные списки (- или •)
+                            if (formattedLine.match(/^[-•]\s/)) {
+                                formattedLine = formattedLine.replace(/^[-•]\s+(.+)$/, '<div style="margin: 8px 0; padding-left: 24px; color: #ffffff; font-size: 15px; line-height: 1.6;">• $1</div>');
+                                paragraphHtml += formattedLine;
+                                return;
+                            }
+                            
+                            // Обычный текст
+                            formattedLine = formattedLine
+                                .replace(/\*\*(.+?)\*\*/g, '<strong style="color: #ffffff; font-weight: 600;">$1</strong>')
+                                .replace(/\*(.+?)\*/g, '<em style="color: #a8a8a8; font-style: italic;">$1</em>');
+                            
+                            paragraphHtml += `<div style="color: #ffffff; font-size: 15px; line-height: 1.8; margin-bottom: 12px; white-space: pre-wrap;">${formattedLine}</div>`;
+                        }
+                    });
+                    
+                    if (paragraphHtml) {
+                        html += `<div style="margin-bottom: 20px;">${paragraphHtml}</div>`;
+                    }
                 }
             });
             
-            reportDiv.innerHTML = html;
+            reportDiv.innerHTML = html || '<div style="color: #8e8e8e; font-size: 14px; text-align: center; padding: 20px;">Нет данных для отображения</div>';
         }
         
         function formatNumber(num) {
