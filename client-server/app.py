@@ -90,6 +90,37 @@ async def lifespan(app: FastAPI):
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Обработчик команды /start"""
+    # Проверяем параметры команды /start
+    args = context.args
+    if args and len(args) > 0:
+        command = args[0]
+        if command.startswith('upload_'):
+            # Обработка команды из мини-приложения
+            parts = command.split('_')
+            if len(parts) >= 3:
+                screenshot_type = parts[1]  # main_page или stats
+                username = '_'.join(parts[2:])  # username может содержать подчеркивания
+                
+                context.user_data['username'] = username
+                context.user_data['screenshot_type'] = screenshot_type
+                
+                keyboard = [
+                    [
+                        InlineKeyboardButton("📱 Главная страница", callback_data="upload_main_page"),
+                        InlineKeyboardButton("📊 Статистика", callback_data="upload_stats")
+                    ]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                type_name = "главной страницы" if screenshot_type == 'main_page' else "статистики"
+                await update.message.reply_text(
+                    f"✅ Username получен: {username}\n\n"
+                    f"Готов к загрузке скриншота {type_name}.\n"
+                    f"Выберите тип скриншота или отправьте фото:",
+                    reply_markup=reply_markup
+                )
+                return
+    
     keyboard = [
         [InlineKeyboardButton(
             "📊 Открыть мини-приложение",

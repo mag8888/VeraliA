@@ -283,6 +283,18 @@
         .tab-content.active {
             display: block;
         }
+        
+        .upload-section {
+            background: #1a1a1a;
+            border: 1px solid #262626;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .upload-section h3 {
+            margin-bottom: 12px;
+        }
     </style>
 </head>
 <body>
@@ -297,6 +309,21 @@
                 <div class="button-group">
                     <button class="btn" onclick="loadUserData()">🔍 Загрузить</button>
                 </div>
+            </div>
+            
+            <div class="upload-section">
+                <h3 style="font-size: 16px; font-weight: 600; margin-bottom: 12px; color: #ffffff;">📸 Загрузить скриншоты</h3>
+                <div class="button-group">
+                    <button class="btn btn-secondary" onclick="openTelegramForUpload('main_page')">
+                        📱 Главная страница
+                    </button>
+                    <button class="btn btn-secondary" onclick="openTelegramForUpload('stats')">
+                        📊 Статистика
+                    </button>
+                </div>
+                <p style="font-size: 12px; color: #8e8e8e; margin-top: 8px; text-align: center;">
+                    Нажмите кнопку, чтобы открыть бота и загрузить скриншот
+                </p>
             </div>
             
             <div class="tabs">
@@ -436,6 +463,35 @@
                 return (num / 1000).toFixed(1) + 'K';
             }
             return num.toString();
+        }
+        
+        function openTelegramForUpload(type) {
+            const username = document.getElementById('usernameInput').value.trim();
+            
+            if (!username) {
+                alert('Сначала введите username Instagram');
+                return;
+            }
+            
+            // Открываем бота в Telegram
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                
+                // Отправляем сообщение боту через Telegram
+                const message = type === 'main_page' 
+                    ? `📱 Загрузить главную страницу для ${username}`
+                    : `📊 Загрузить статистику для ${username}`;
+                
+                // Используем Telegram Bot API для отправки сообщения
+                tg.openLink(`https://t.me/${tg.initDataUnsafe.user?.username || 'your_bot_username'}?start=upload_${type}_${username}`);
+            } else {
+                // Если не в Telegram WebApp, показываем инструкцию
+                const instruction = type === 'main_page'
+                    ? `Откройте бота в Telegram и отправьте:\n1. Username: ${username}\n2. Выберите "📱 Главная страница"\n3. Отправьте скриншот`
+                    : `Откройте бота в Telegram и отправьте:\n1. Username: ${username}\n2. Выберите "📊 Статистика"\n3. Отправьте скриншот`;
+                
+                alert(instruction);
+            }
         }
         
         // Автозагрузка при Enter
