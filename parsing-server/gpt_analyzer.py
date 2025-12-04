@@ -25,14 +25,14 @@ class GPTAnalyzer:
     
     def generate_report(self, profile_data: Dict[str, Any], screenshot_data: Dict[str, Any]) -> Dict[str, str]:
         """
-        Генерирует отчет на русском и английском языках с помощью GPT
+        Генерирует отчет на русском языке с помощью GPT
         
         Args:
             profile_data: Основные данные профиля
             screenshot_data: Дополнительные данные из скриншота
             
         Returns:
-            dict: {"ru": "отчет на русском", "en": "отчет на английском"}
+            dict: {"ru": "отчет на русском", "en": ""}
         """
         if not self.client:
             logger.error("GPT клиент не инициализирован. Проверьте OPENAI_API_KEY.")
@@ -42,13 +42,13 @@ class GPTAnalyzer:
         prompt = self._build_prompt(profile_data, screenshot_data)
         
         try:
-            # Генерируем отчет на английском (оригинал)
-            response_en = self.client.chat.completions.create(
+            # Генерируем отчет на русском языке
+            response_ru = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an expert Instagram account analyst specializing in influencer marketing and brand partnerships. Generate detailed, professional reports for advertisers and brands."
+                        "content": "Ты эксперт по анализу Instagram аккаунтов, специализирующийся на маркетинге влияния и партнерствах с брендами. Генерируй детальные, профессиональные отчеты для рекламодателей и брендов. Всегда отвечай ТОЛЬКО на русском языке."
                     },
                     {
                         "role": "user",
@@ -56,26 +56,7 @@ class GPTAnalyzer:
                     }
                 ],
                 temperature=0.7,
-                max_tokens=3000
-            )
-            
-            report_en = response_en.choices[0].message.content.strip()
-            
-            # Переводим на русский
-            response_ru = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a professional translator. Translate the following Instagram account analysis report from English to Russian. Maintain the structure, formatting, and professional tone. Keep all numbers, metrics, and technical terms intact."
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Translate this report to Russian:\n\n{report_en}"
-                    }
-                ],
-                temperature=0.3,
-                max_tokens=3000
+                max_tokens=4000
             )
             
             report_ru = response_ru.choices[0].message.content.strip()
@@ -83,7 +64,7 @@ class GPTAnalyzer:
             logger.info("GPT отчет успешно сгенерирован")
             return {
                 "ru": report_ru,
-                "en": report_en
+                "en": ""
             }
             
         except Exception as e:
@@ -110,86 +91,81 @@ class GPTAnalyzer:
         messages = screenshot_data.get('messages', 0)
         shares = screenshot_data.get('shares', 0)
         
-        prompt = f"""Analyze the Instagram account based on the provided data.
+        # Оцениваем количество подписчиков, если не указано
+        followers_text = f"{followers:,}" if followers > 0 else "(не указано — вероятно ~100–200K, уточни при необходимости)"
+        
+        prompt = f"""Проанализируй Instagram аккаунт на основе предоставленных данных.
 
-Generate a structured report as if you are preparing it for advertisers, brands, or an influencer-marketing platform.
+Сгенерируй структурированный отчет на русском языке в следующем формате:
 
-Here are the input details:
+ДАННЫЕ ПРОФИЛЯ:
+– Подписчики: {followers_text}
+– Публикации: {posts_count if posts_count > 0 else "неизвестно"}
+– Биография: {bio if bio else "не указана"}
+– Просмотры (за последние 30 дней): {views:,} {f"({views/1000000:.1f} млн)" if views >= 1000000 else ""}
+– Взаимодействия (за последние 30 дней): {interactions:,} {f"({interactions/1000000:.1f} млн)" if interactions >= 1000000 else ""}
+– Новые подписчики (за последние 30 дней): {new_followers:,}
+– Сообщений: {messages:,}
+– Контент, которым поделились: {shares:,}
 
-– Followers: {followers:,}
-– Number of posts: {posts_count:,}
-– Bio / positioning: {bio}
-– Views in the last 30 days: {views:,}
-– Interactions in the last 30 days (likes + comments + saves + reactions): {interactions:,}
-– New followers last month: {new_followers:,}
-– Number of messages: {messages:,}
-– Number of shares (content shared): {shares:,}
-
-Produce the analysis in the following structure:
+Сгенерируй отчет СТРОГО в следующей структуре (на русском языке):
 
 1. OVERALL ACCOUNT METRICS & PERFORMANCE
 
-Include:
-– General health of the account
-– Engagement Rate (ER) calculation
-– Growth dynamics
-– Evaluation of audience activity
-– Strength of the account compared to industry averages
+Начни с заголовка "Followers:" и укажи {followers_text if followers > 0 else "(не указано — вероятно ~100–200K, уточни при необходимости)"}
+
+Затем опиши:
+- Posts: {posts_count if posts_count > 0 else "unknown"}
+- Views (last 30 days): {views:,} - дай оценку вирусности
+- Interactions (last 30 days): {interactions:,} - проанализируй уровень вовлеченности
+- New followers (last 30 days): {new_followers:,} - оцени рост
+- Shares (content shared): {shares:,} - объясни значение шерингов
+
+Вычисли Engagement Rate (ER) месячный:
+ER ≈ {interactions:,} / (оценка подписчиков) × 100
+
+Дай вывод о фазе роста аккаунта.
 
 2. AUDIENCE & CONTENT ANALYSIS
 
-Identify:
-– Niche/theme
-– Content type and style
-– Expected demographics
-– Audience interests
-– Level of trust & loyalty
-– Emotional tone in comments
-– What types of people the content attracts
+Определи:
+- Нишу (Niche)
+- Стиль контента (Content Style)
+- Демографию аудитории (Audience Demographics)
+- Уровень доверия аудитории (Audience Trust Level)
+- Эмоциональный тон в комментариях (Emotional Tone in Comments)
 
 3. POTENTIAL PARTNERS & ADVERTISERS
 
-Break down by categories:
-– Brands
-– Services
-– Digital platforms
-– Wellness/self-development products
-– Relevant commercial niches
-– Potential collaborations and sponsorship fits
+Разбей по категориям:
+1. Психологические и коучинг сервисы
+2. Лайфстайл и личностное развитие бренды
+3. Отношения и сегмент знакомств
+4. Продукты для саморазвития
+5. Контент-креаторы и кросс-промо
 
 4. COMPLIMENTS — STRONG POINTS OF THE ACCOUNT
 
-Highlight what is already working well:
-– Style
-– Expertise
-– Visual appeal
-– Messaging clarity
-– Content formats that perform best
-– Any unique selling points
+Выдели 5 сильных сторон аккаунта с эмодзи 🌟
 
 5. SPECIFIC RECOMMENDATIONS FOR IMPROVEMENT
 
-Provide actionable suggestions for:
-– Bio optimization
-– Content strategy
-– Reels
-– Stories
-– Conversion flow
-– Increasing trust and authority
-– Improving highlights, structure, visual identity
-– Increasing reach & engagement
+Дай 5-6 конкретных рекомендаций по улучшению:
+1. Добавить больше структурированных Highlights
+2. Ввести формат "серийного контента"
+3. Усилить CTAs в Reels
+4. Конвертировать вирусный трафик в глубокую аудиторию
+5. Начать длинный контент (опционально)
+6. Дополнительные рекомендации
 
-6. ADDITIONAL INSIGHTS (if possible)
+6. ADDITIONAL INSIGHTS
 
-Include:
-– Reels ideas
-– New content rubrics
-– Suggested storytelling angles
-– How to increase ER
-– How to boost sales via Instagram
-– Any growth accelerators or strategic opportunities
+Включи:
+- 🔥 Лучшие возможности для контента
+- 📈 Ускорители роста
+- 💰 Возможности монетизации
 
-Generate a comprehensive, professional report that would be valuable for brands considering partnerships with this account."""
+ВАЖНО: Отвечай ТОЛЬКО на русском языке. Используй профессиональный тон, но понятный язык. Сохраняй структуру с заголовками и подзаголовками."""
         
         return prompt
 

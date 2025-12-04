@@ -888,11 +888,16 @@
             }
         }
         
+        let fullReportText = '';
+        let isFullReportVisible = false;
+        
         function displayAnalytics(data) {
             const analyticsDiv = document.getElementById('analyticsContent');
             const profileData = data.data || data;
             const report = data.report || {};
             const reportText = report.ru || report.en || '';
+            fullReportText = reportText;
+            isFullReportVisible = false;
             
             let html = '';
             
@@ -927,8 +932,8 @@
                             <div style="font-size: 12px; color: #8e8e8e;">Публикации</div>
                         </div>
                         <div style="background: #262626; border-radius: 8px; padding: 16px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 600; color: #f59e0b; margin-bottom: 4px;">${formatNumber(profileData.screenshot_data?.interactions || 0)}</div>
-                            <div style="font-size: 12px; color: #8e8e8e;">Взаимодействия</div>
+                            <div style="font-size: 24px; font-weight: 600; color: #f59e0b; margin-bottom: 4px;">${formatNumber(profileData.views || profileData.screenshot_data?.views || 0)}</div>
+                            <div style="font-size: 12px; color: #8e8e8e;">Просмотры</div>
                         </div>
                     </div>
                     
@@ -949,12 +954,17 @@
                 </div>
             `;
             
-            // GPT отчет
+            // Первая секция GPT отчета (OVERALL ACCOUNT METRICS & PERFORMANCE)
             if (reportText) {
+                const firstSection = extractFirstSection(reportText);
                 html += `
                     <div style="background: #1a1a1a; border: 1px solid #262626; border-radius: 8px; padding: 20px; margin-bottom: 16px;">
-                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #ffffff;">🤖 GPT Анализ</h3>
-                        <div id="reportContent" style="color: #ffffff; line-height: 1.6; max-height: 60vh; overflow-y: auto;"></div>
+                        <h3 style="font-size: 18px; font-weight: 600; margin-bottom: 16px; color: #ffffff;">1. OVERALL ACCOUNT METRICS & PERFORMANCE</h3>
+                        <div id="firstSectionContent" style="color: #ffffff; line-height: 1.6;"></div>
+                        <button class="btn btn-full" onclick="toggleFullReport()" style="margin-top: 16px; background: #0095f6;">
+                            <span id="toggleReportBtn">📖 Показать расширенную информацию</span>
+                        </button>
+                        <div id="fullReportContent" style="display: none; margin-top: 20px; color: #ffffff; line-height: 1.6;"></div>
                     </div>
                 `;
             }
@@ -964,9 +974,37 @@
             // Создаем графики
             createCharts(profileData);
             
-            // Форматируем и отображаем GPT отчет
+            // Форматируем и отображаем первую секцию
             if (reportText) {
-                formatAndDisplayReport(reportText);
+                const firstSection = extractFirstSection(reportText);
+                formatAndDisplayReport(firstSection, 'firstSectionContent');
+            }
+        }
+        
+        function extractFirstSection(reportText) {
+            // Извлекаем первую секцию (до "2. AUDIENCE & CONTENT ANALYSIS")
+            const sections = reportText.split(/(?=^\d+\.\s)/m);
+            if (sections.length > 0) {
+                return sections[0].trim();
+            }
+            return reportText;
+        }
+        
+        function toggleFullReport() {
+            const fullReportDiv = document.getElementById('fullReportContent');
+            const toggleBtn = document.getElementById('toggleReportBtn');
+            
+            if (!fullReportDiv || !toggleBtn) return;
+            
+            if (isFullReportVisible) {
+                fullReportDiv.style.display = 'none';
+                toggleBtn.textContent = '📖 Показать расширенную информацию';
+                isFullReportVisible = false;
+            } else {
+                fullReportDiv.style.display = 'block';
+                formatAndDisplayReport(fullReportText, 'fullReportContent');
+                toggleBtn.textContent = '📕 Скрыть расширенную информацию';
+                isFullReportVisible = true;
             }
         }
         
@@ -975,9 +1013,10 @@
             const following = profileData.following || 0;
             const posts = profileData.posts_count || 0;
             const engagementRate = (profileData.engagement_rate || 0) * 100;
-            const views = profileData.screenshot_data?.views || 0;
-            const interactions = profileData.screenshot_data?.interactions || 0;
-            const newFollowers = profileData.screenshot_data?.new_followers || 0;
+            const views = profileData.views || profileData.screenshot_data?.views || 0;
+            const interactions = profileData.interactions || profileData.screenshot_data?.interactions || 0;
+            const newFollowers = profileData.new_followers || profileData.screenshot_data?.new_followers || 0;
+            const shares = profileData.shares || profileData.screenshot_data?.shares || 0;
             
             // График Engagement Rate (Doughnut)
             const engagementCtx = document.getElementById('engagementChart');
@@ -1145,40 +1184,53 @@
             }
         }
         
-        function formatAndDisplayReport(reportText) {
-            const reportDiv = document.getElementById('reportContent');
+        function formatAndDisplayReport(reportText, targetId = 'reportContent') {
+            const reportDiv = document.getElementById(targetId);
             if (!reportDiv) return;
             
-            // Разбиваем отчет на секции и форматируем
-            const sections = reportText.split(/\n\n+/);
+            // Разбиваем отчет на строки для более точного форматирования
+            const lines = reportText.split('\n');
             let html = '';
             
-            sections.forEach(section => {
-                if (section.trim()) {
-                    let formattedSection = section;
+            lines.forEach(line => {
+                if (line.trim()) {
+                    let formattedLine = line;
                     
-                    // Заголовки с эмодзи
-                    formattedSection = formattedSection.replace(/^([✅📊🌿✨🎯👥🤝🌟🔧])\s+(.+)$/gm, '<h3 style="color: #0095f6; margin-top: 20px; margin-bottom: 12px; font-size: 16px; font-weight: 600;">$1 $2</h3>');
+                    // Заголовки секций (1., 2., 3. и т.д.)
+                    formattedLine = formattedLine.replace(/^(\d+)\.\s+(.+)$/gm, '<h3 style="color: #0095f6; margin-top: 20px; margin-bottom: 12px; font-size: 18px; font-weight: 600;">$1. $2</h3>');
                     
-                    // Подзаголовки
-                    formattedSection = formattedSection.replace(/^###\s+(.+)$/gm, '<h4 style="color: #ffffff; margin-top: 16px; margin-bottom: 8px; font-size: 14px; font-weight: 600;">$1</h4>');
+                    // Подзаголовки (Followers:, Posts: и т.д.)
+                    formattedLine = formattedLine.replace(/^([A-Z][^:]+):\s*(.+)$/gm, '<div style="margin: 12px 0;"><strong style="color: #0095f6;">$1:</strong> <span style="color: #ffffff;">$2</span></div>');
                     
-                    // Списки с галочками
-                    formattedSection = formattedSection.replace(/^✔\s+(.+)$/gm, '<div style="color: #0095f6; margin: 6px 0; padding-left: 8px;">✔ $1</div>');
+                    // Списки с галочками (✔)
+                    formattedLine = formattedLine.replace(/^✔\s+(.+)$/gm, '<div style="color: #0095f6; margin: 6px 0; padding-left: 8px;">✔ $1</div>');
                     
-                    // Нумерованные списки
-                    formattedSection = formattedSection.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="margin: 6px 0; padding-left: 16px; color: #ffffff;">$1. $2</div>');
+                    // Списки с звездочками (🌟)
+                    formattedLine = formattedLine.replace(/^🌟\s+(\d+)\.\s+(.+)$/gm, '<div style="color: #f59e0b; margin: 8px 0; padding-left: 8px; font-weight: 600;">🌟 $1. $2</div>');
                     
-                    // Маркированные списки
-                    formattedSection = formattedSection.replace(/^[-•]\s+(.+)$/gm, '<div style="margin: 4px 0; padding-left: 16px; color: #ffffff;">• $1</div>');
+                    // Эмодзи заголовки (🔥, 📈, 💰)
+                    formattedLine = formattedLine.replace(/^([🔥📈💰])\s+(.+)$/gm, '<h4 style="color: #f59e0b; margin-top: 16px; margin-bottom: 8px; font-size: 16px; font-weight: 600;">$1 $2</h4>');
                     
-                    // Жирный текст
-                    formattedSection = formattedSection.replace(/\*\*(.+?)\*\*/g, '<strong style="color: #ffffff; font-weight: 600;">$1</strong>');
+                    // Нумерованные списки (1. 2. 3.)
+                    if (!formattedLine.match(/^<h3/)) {
+                        formattedLine = formattedLine.replace(/^(\d+)\.\s+(.+)$/gm, '<div style="margin: 6px 0; padding-left: 16px; color: #ffffff;">$1. $2</div>');
+                    }
                     
-                    // Курсив
-                    formattedSection = formattedSection.replace(/\*(.+?)\*/g, '<em style="color: #a8a8a8;">$1</em>');
+                    // Маркированные списки (- или •)
+                    formattedLine = formattedLine.replace(/^[-•]\s+(.+)$/gm, '<div style="margin: 4px 0; padding-left: 16px; color: #ffffff;">• $1</div>');
                     
-                    html += `<div style="color: #ffffff; line-height: 1.7; margin-bottom: 16px; white-space: pre-wrap;">${formattedSection}</div>`;
+                    // Жирный текст (**text**)
+                    formattedLine = formattedLine.replace(/\*\*(.+?)\*\*/g, '<strong style="color: #ffffff; font-weight: 600;">$1</strong>');
+                    
+                    // Курсив (*text*)
+                    formattedLine = formattedLine.replace(/\*(.+?)\*/g, '<em style="color: #a8a8a8;">$1</em>');
+                    
+                    // Если строка не была преобразована в HTML, добавляем как обычный текст
+                    if (!formattedLine.match(/^<[h|d|s]/)) {
+                        formattedLine = `<div style="color: #ffffff; line-height: 1.7; margin-bottom: 8px;">${formattedLine}</div>`;
+                    }
+                    
+                    html += formattedLine;
                 }
             });
             
