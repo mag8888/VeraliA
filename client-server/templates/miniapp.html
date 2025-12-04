@@ -408,6 +408,35 @@
             showPage('page1');
         }
         
+        function updateProfileData() {
+            // Проверяем, что username установлен
+            if (!currentUsername) {
+                alert('Ошибка: username не найден');
+                return;
+            }
+            
+            // Показываем username на странице загрузки
+            document.getElementById('displayUsername').textContent = currentUsername;
+            
+            // Меняем кнопку "Назад" - если мы пришли со страницы профиля, возвращаемся туда
+            const backButton = document.querySelector('#page2 .back-button');
+            if (backButton) {
+                backButton.onclick = function() {
+                    showPage('page5');
+                    // Восстанавливаем детали профиля
+                    if (currentProfileData) {
+                        displayProfileDetails(currentProfileData);
+                    } else {
+                        viewProfile(currentUsername);
+                    }
+                };
+                backButton.textContent = '← Назад к профилю';
+            }
+            
+            // Переходим на страницу загрузки скриншота статистики
+            showPage('page2');
+        }
+        
         function showPage(pageId) {
             // Скрываем все страницы
             document.querySelectorAll('.page').forEach(page => {
@@ -573,21 +602,34 @@
                 }
                 
                 // Показываем успешное сообщение
+                // Проверяем, пришли ли мы со страницы профиля (page5)
+                const cameFromProfile = document.getElementById('page5').classList.contains('active') || 
+                                       (document.getElementById('page2').querySelector('.back-button')?.textContent?.includes('профилю'));
+                
                 resultsDiv.innerHTML = `
                     <div style="background: #1a1a1a; border: 1px solid #0095f6; border-radius: 8px; padding: 20px; text-align: center;">
                         <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
-                        <h3 style="color: #ffffff; margin-bottom: 8px; font-size: 18px;">Скриншот загружен!</h3>
-                        <p style="color: #a8a8a8; margin-bottom: 16px;">Данные для пользователя <strong>${currentUsername}</strong> сохранены</p>
-                        <button class="btn btn-full" onclick="loadUserData()" style="margin-top: 12px;">
-                            Просмотреть данные
+                        <h3 style="color: #ffffff; margin-bottom: 8px; font-size: 18px;">${cameFromProfile ? 'Данные обновлены!' : 'Скриншот загружен!'}</h3>
+                        <p style="color: #a8a8a8; margin-bottom: 16px;">Данные для пользователя <strong>${currentUsername}</strong> ${cameFromProfile ? 'успешно обновлены' : 'сохранены'}</p>
+                        <button class="btn btn-full" onclick="${cameFromProfile ? `viewProfile('${currentUsername}')` : 'loadUserData()'}" style="margin-top: 12px;">
+                            ${cameFromProfile ? 'Просмотреть обновленные данные' : 'Просмотреть данные'}
                         </button>
                         <div class="button-group" style="margin-top: 12px;">
                             <button class="btn btn-full" onclick="saveProfile()" style="background: #ed4956; border: 1px solid #ed4956;">
                                 Сохранить профиль
                             </button>
                         </div>
-                        <button class="btn btn-secondary btn-full" onclick="goBackToPage1()" style="margin-top: 8px;">
-                            Загрузить другой профиль
+                        ${cameFromProfile ? `
+                            <button class="btn btn-secondary btn-full" onclick="viewProfile('${currentUsername}')" style="margin-top: 8px;">
+                                Вернуться к профилю
+                            </button>
+                        ` : `
+                            <button class="btn btn-secondary btn-full" onclick="goBackToPage1()" style="margin-top: 8px;">
+                                Загрузить другой профиль
+                            </button>
+                        `}
+                        <button class="btn btn-secondary btn-full" onclick="goToProfilesList()" style="margin-top: 8px;">
+                            Вернуться к списку
                         </button>
                     </div>
                 `;
