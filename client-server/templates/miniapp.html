@@ -267,7 +267,7 @@
             <div id="page1" class="page active">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h2 style="font-size: 20px; font-weight: 600;">Новый профиль</h2>
-                    <button class="btn btn-secondary" onclick="goToProfilesList()" style="width: auto; padding: 8px 16px;">
+                    <button id="listButton" class="btn btn-secondary" onclick="goToProfilesList()" style="width: auto; padding: 8px 16px; display: none;">
                         📋 Список
                     </button>
                 </div>
@@ -782,14 +782,60 @@
             }
         });
         
-        // При загрузке страницы показываем список профилей, если есть сохраненные
+        // При загрузке страницы проверяем наличие сохраненных профилей
         window.addEventListener('load', function() {
-            const savedProfiles = JSON.parse(localStorage.getItem('savedProfiles') || '[]');
-            if (savedProfiles.length > 0) {
-                // Можно автоматически показать список профилей
-                // или оставить первую страницу
-            }
+            checkAndShowListButton();
         });
+        
+        function checkAndShowListButton() {
+            const savedProfiles = JSON.parse(localStorage.getItem('savedProfiles') || '[]');
+            const listButton = document.getElementById('listButton');
+            
+            if (savedProfiles.length > 0) {
+                listButton.style.display = 'block';
+            } else {
+                listButton.style.display = 'none';
+            }
+        }
+        
+        // Обновляем видимость кнопки после сохранения профиля
+        function saveProfile() {
+            if (!currentProfileData) {
+                alert('Нет данных для сохранения');
+                return;
+            }
+            
+            // Сохраняем в localStorage
+            let savedProfiles = JSON.parse(localStorage.getItem('savedProfiles') || '[]');
+            
+            // Проверяем, не сохранен ли уже этот профиль
+            const existingIndex = savedProfiles.findIndex(p => p.username === currentUsername);
+            
+            const profileData = {
+                username: currentUsername,
+                followers: currentProfileData.followers || 0,
+                following: currentProfileData.following || 0,
+                posts_count: currentProfileData.posts_count || 0,
+                engagement_rate: currentProfileData.engagement_rate || 0,
+                bio: currentProfileData.bio || '',
+                analyzed_at: currentProfileData.analyzed_at || new Date().toISOString(),
+                saved_at: new Date().toISOString()
+            };
+            
+            if (existingIndex >= 0) {
+                savedProfiles[existingIndex] = profileData;
+            } else {
+                savedProfiles.push(profileData);
+            }
+            
+            localStorage.setItem('savedProfiles', JSON.stringify(savedProfiles));
+            
+            // Обновляем видимость кнопки списка
+            checkAndShowListButton();
+            
+            alert('Профиль сохранен!');
+            goToProfilesList();
+        }
     </script>
 </body>
 </html>
